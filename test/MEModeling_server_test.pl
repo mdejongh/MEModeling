@@ -30,9 +30,15 @@ sub get_ws_name {
 
 eval {
     $@ = '';
+    my $result;
     eval { 
-        $impl->build_me_model("KBasePublicGenomesV5", "kb|g.0");
+	print STDERR "Getting ready ...\n";
+        $result = $impl->build_me_model("KBasePublicGenomesV5", "kb|g.0");
+	print STDERR "Done\n";
     };
+    print "$@\n";
+    use Data::Dumper;
+    print &Dumper($result);
     done_testing(0);
 };
 my $err = undef;

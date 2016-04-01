@@ -123,7 +123,7 @@ sub build_me_model
     
     my $genome;
     eval {
-	$genome = $wsClient->get_objects([{ref=>$genome_id}])->[0]{data};
+	$genome = $wsClient->get_objects([{ref=>$workspace."/".$genome_id}])->[0]{data};
 	push @{$provenance->[0]->{'input_ws_objects'}}, $genome_id;
     };
     if ($@) {
