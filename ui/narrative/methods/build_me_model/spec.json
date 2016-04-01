@@ -1,0 +1,63 @@
+{
+	"ver": "0.0.1",
+	
+	"authors": [
+		"[dejongh]"
+	],
+	"contact": "help@kbase.us",
+	"visible": true,
+	"categories": ["active"],
+	"widgets": {
+		"input": null,
+		"output": "kbaseReportView"
+	},
+	"parameters": [ 
+		{
+			"id": "genome_id",
+			"optional": false,
+			"advanced": false,
+			"allow_multiple": false,
+			"default_values": [ "" ],
+			"field_type": "text",
+			"text_options": {
+				"valid_ws_types": ["KBaseGenomes.Genome"]
+			}
+		}
+	],
+	"behavior": {
+		"service-mapping": {
+			"url": "",
+			"name": "MEModeling",
+			"method": "build_me_model",
+			"input_mapping": [
+				{
+					"narrative_system_variable": "workspace",
+					"target_argument_position": 0
+				},
+				{
+					"input_parameter": "genome_id",
+					"target_argument_position": 1
+				}
+			],
+			"output_mapping": [
+			{
+			"narrative_system_variable": "workspace",
+			"target_property": "workspace_name"
+			},
+			{
+			"service_method_output_path": [0,"report_name"],
+			"target_property": "report_name"
+			},
+			{
+			"service_method_output_path": [0,"report_ref"],
+			"target_property": "report_ref"
+			},
+			{
+			"constant_value": "16",
+			"target_property": "report_window_line_height"
+			}
+			]
+		}
+	},
+	"job_id_output_field": "docker"
+}

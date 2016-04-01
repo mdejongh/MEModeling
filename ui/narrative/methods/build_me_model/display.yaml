@@ -1,0 +1,39 @@
+#
+# define display information
+#
+name: Build Metabolism-Expression Model for Genome
+tooltip: |
+	Build an FBA Model for a genome with metabolic and transcription/translation reactions
+screenshots: []
+
+icon: icon.png
+
+#
+# define a set of similar methods that might be useful to the user
+#
+suggestions:
+	apps:
+		related:
+			[]
+		next:
+			[]
+	methods:
+		related:
+			[]
+		next:
+			[]
+
+#
+# Configure the display and description of parameters
+#
+parameters :
+    genome_id :
+        ui-name : |
+            Genome Id
+        short-hint : |
+            The Genome for which to build the ME Model
+        long-hint  : |
+            The Genome for which to build the ME Model
+
+description : |
+	<p>This method generates an FBA model that includes reactions for transcription, translation, and metabolism.</p>
