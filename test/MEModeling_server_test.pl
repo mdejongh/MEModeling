@@ -6,6 +6,7 @@ use Time::HiRes qw(time);
 use Bio::KBase::AuthToken;
 use Bio::KBase::workspace::Client;
 use MEModeling::MEModelingImpl;
+use JSON::XS;
 
 local $| = 1;
 my $token = $ENV{'KB_AUTH_TOKEN'};
@@ -32,8 +33,27 @@ eval {
     $@ = '';
     my $result;
     eval { 
+	print STDERR "Loading genome and contigs ...\n";
+	
+        my $obj_name = "kb|g.0.c.1";
+	open (CONTIG, "kb_g.0.contigset.json");
+        my $obj = <CONTIG>;
+	chomp $obj;
+	close CONTIG;
+	my $decoded = JSON::XS::decode_json($obj);
+        $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseGenomes.ContigSet', 'name' => $obj_name, 'data' => $decoded}]});
+
+	my $obj_name2 = "E_coli_K12_reannotated";
+	open (ECK12, "E_coli_K12_reannotated.json");
+        my $obj2 = <ECK12>;
+	chomp $obj2;
+	close ECK12;
+	my $decoded2 = JSON::XS::decode_json($obj2);
+	$decoded2->{"contigset_ref"} = get_ws_name()."/".$obj_name;
+        $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseGenomes.Genome', 'name' => $obj_name2, 'data' => $decoded2}]});
+
 	print STDERR "Getting ready ...\n";
-        $result = $impl->build_me_model("KBasePublicGenomesV5", "kb|g.0");
+        $result = $impl->build_me_model(get_ws_name, $obj_name2);
 	print STDERR "Done\n";
     };
     print "$@\n";

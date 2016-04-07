@@ -281,7 +281,7 @@ sub build_me_model
     my $genome;
     eval {
 	$genome = $wsClient->get_objects([{ref=>$workspace."/".$genome_id}])->[0]{data};
-	push @{$provenance->[0]->{'input_ws_objects'}}, $genome_id;
+	push @{$provenance->[0]->{'input_ws_objects'}}, $workspace."/".$genome_id;
     };
     if ($@) {
 	die "Error loading genome:\n".$@;
@@ -314,7 +314,7 @@ sub build_me_model
 	    push @{$trna_seqs{$fr}}, uc $dna;
 	}
 	else {
-	    $aa_seq{$gene} = uc $feature->protein_translation;
+	    $aa_seq{$gene} = uc $feature->{protein_translation};
 	}
 
     }
@@ -386,14 +386,14 @@ sub build_me_model
     # read factors.txt and calculate formula and charge
     my (%factors, %formulae);
 
-    open (FACTORS, "data/factors.txt");
+    open (FACTORS, "../data/factors.txt") or die("Couldn't open factors.txt: $!");
     while (<FACTORS>) {
 	chomp;
 	my ($category, $fname, $fr, $formula, $charge) = split "\t";
 	$factors{$category}{$fname} = 1 if defined $category;
 	if (! defined $formula) {
 	    if (exists $fr2gene{$fr}) {
-		my %m_count = &mature_count(&aa_count($aa_seq{$fr2gene{$fr}}));
+		my %m_count = &mature_count(&aa_count($aa_seq{$fr2gene{$fr}}, \%infos));
 		my $multiplier = 1;
 		if ($fname =~ /_hexa$/) {
 		    $multiplier = 6;
@@ -838,7 +838,7 @@ sub build_me_model
 	my ${h}=2*$sum_aa+1;
 	my $number_rib=int(($sum_aa+1)/17);
 	
-	my %aa_count = &aa_count($aa_seq{$gene});
+	my %aa_count = &aa_count($aa_seq{$gene}, \%infos);
 
 	my $cpd_aa = "$gene\_aa\tpolypeptide $gene\tC$aa_count{C}H$aa_count{H}N$aa_count{N}O$aa_count{O}S$aa_count{S}";
 	if ($aa_count{Se} !=0)
@@ -1533,12 +1533,12 @@ sub build_me_model
     push @{$reactions{"Recycling"}}, "fmet_tRNA_cycle\tCharging of fmet-tRNA with methionine and formyl group\t1 fmet_tRNA + 1 for + 1 Met --> 1 fmet_tRNA_met\tirreversible\tRecycling\n";
 
     my $report = "Genetic Code is $assigned_code\n";
-    my $reportObj = { "text_message"=>$report };
+    my $reportObj = { "text_message"=>$report, "objects_created"=>[] };
     my $reportName = "build_me_model_report";
 
     my $time = time;
     my $metadata = $wsClient->save_objects({
-	'id' => $reportName.$time,
+	'workspace' => $workspace,
 	'objects' => [{
 	    type => 'KBaseReport.Report',
 	    data => $reportObj,
