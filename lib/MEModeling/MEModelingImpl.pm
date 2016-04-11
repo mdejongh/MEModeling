@@ -21,6 +21,36 @@ use Bio::KBase::workspace::Client;
 use Config::IniFiles;
 use Data::Dumper;
 
+sub get_dna {
+    my ($feature, $contigset) = @_;
+    my $ret = $feature->{dna_sequence};
+    if (! defined $ret || length $ret == 0) {
+	my @ret;
+	foreach my $loc (@{$feature->{location}}) {
+	    my ($contig_id, $start, $strand, $len) = @$loc;
+	    my $end;
+	    if ($strand eq "+") {
+		foreach my $contig (@{$contigset->{contigs}}) {
+		    if ($contig->{id} eq $contig_id) {
+			push @ret, substr($contig->{sequence}, ($start-1), $len);
+		    }
+		}
+	    }
+	    elsif ($strand eq "-") {
+		foreach my $contig (@{$contigset->{contigs}}) {
+		    if ($contig->{id} eq $contig_id) {
+			my $tmp = scalar reverse substr($contig->{sequence}, ($start-$len), $len);
+			$tmp =~ tr/ACGTacgt/TGCAtgca/;
+			push  @ret, $tmp;
+		    }
+		}
+	    }
+	}
+	$ret = join "", @ret;
+    }
+    return uc $ret;
+}
+
 sub avg_rna_count {
     my @cds = @_;
     my %rna_count;
@@ -287,6 +317,14 @@ sub build_me_model
 	die "Error loading genome:\n".$@;
     }
 
+    my $contigset;
+    eval {
+	$contigset = $wsClient->get_objects([{ref=>$genome->{contigset_ref}}])->[0]{data};
+    };
+    if ($@) {
+	die "Error loading contigset:\n".$@;
+    }
+
     # NEED GENETIC CODE
     my $assigned_code = $genome->{genetic_code};
 
@@ -298,8 +336,9 @@ sub build_me_model
 
     foreach my $feature (@{$genome->{features}}) {
 	my $gene = $feature->{id};
+	$gene =~ s/\W/_/g;
 	my $fr = $feature->{function};
-	my $dna = $feature->{dna_sequence};
+	my $dna = &get_dna($feature, $contigset);
 	$fr =~ s/\s*#.*$//;
 	if ($fr =~ /\s*;\s*/) {
 	    map { $fr2gene{$_} = $gene } split /s*;\s*/, $fr;
@@ -310,7 +349,7 @@ sub build_me_model
 	else {
 	    $fr2gene{$fr} = $gene;
 	}
-	if ($fr =~ /^tRNA\-(\w+)\-\w{3}/) {
+	if ($fr =~ /^tRNA\-(\w+)\-\w{3}$/) {
 	    push @{$trna_seqs{$fr}}, uc $dna;
 	}
 	else {
@@ -605,10 +644,320 @@ sub build_me_model
 
     foreach my $feature (@{$genome->{features}}) {
 	my $gene = $feature->{id};
+	$gene =~ s/\W/_/g;
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
-	my $cds = uc $feature->{dna_sequence};
-	print STDERR "Processing $gene [$fr] of type $type\n";
+	my $dna = &get_dna($feature, $contigset);
+	$fr =~ s/\s*#.*$//;
+	if ($fr =~ /\s*;\s*/) {
+	    map { $fr2gene{$_} = $gene } split /s*;\s*/, $fr;
+	}
+	elsif ($fr =~ /\s*@\s*/) {
+	    map { $fr2gene{$_} = $gene } split /\s*@\s*/, $fr;
+	}
+	else {
+	    $fr2gene{$fr} = $gene;
+	}
+	if ($fr =~ /^tRNA\-(\w+)\-\w{3}$/) {
+	    push @{$trna_seqs{$fr}}, uc $dna;
+	}
+	else {
+	    $aa_seq{$gene} = uc $feature->{protein_translation};
+	}
+
+    }
+
+    # Compute average composition of tRNAs that match the same codons 
+    my %formula_tRNA;
+
+    foreach my $fr (keys %trna_seqs) {
+	$formula_tRNA{$fr} = &avg_rna_count(@{$trna_seqs{$fr}});
+    }
+
+    ###########################################
+    # Amino Acid Info
+    ###########################################
+    my @AAInfo;
+    $AAInfo[1] = 'A,ala-L,C3H7N1O2,0';
+    $AAInfo[2] = 'R,arg-L,C6H15N4O2,1';
+    $AAInfo[3] = 'N,asn-L,C4H8N2O3,0';
+    $AAInfo[4] = 'D,asp-L,C4H6N1O4,-1';
+    $AAInfo[5] = 'C,cys-L,C3H7N1O2S1,0';
+    $AAInfo[6] = 'Q,gln-L,C5H10N2O3,0';
+    $AAInfo[7] = 'E,glu-L,C5H8N1O4,-1';
+    $AAInfo[8] = 'G,gly,C2H5N1O2,0';
+    $AAInfo[9] = 'H,his-L,C6H9N3O2,0';
+    $AAInfo[10] = 'I,ile-L,C6H13N1O2,0';
+    $AAInfo[11] = 'L,leu-L,C6H13N1O2,0';
+    $AAInfo[12] = 'K,lys-L,C6H15N2O2,1';
+    $AAInfo[13] = 'M,met-L,C5H11N1O2S1,0';
+    $AAInfo[14] = 'F,phe-L,C9H11N1O2,0';
+    $AAInfo[15] = 'P,pro-L,C5H9N1O2,0';
+    $AAInfo[16] = 'S,ser-L,C3H7N1O3,0';
+    $AAInfo[17] = 'T,thr-L,C4H9N1O3,0';
+    $AAInfo[18] = 'W,trp-L,C11H12N2O2,0';
+    $AAInfo[19] = 'Y,tyr-L,C9H11N1O3,0';
+    $AAInfo[20] = 'V,val-L,C5H11N1O2,0';
+    $AAInfo[21] = 'Sec,Sec,C3H7N1O2Se1,0';
+
+    my %infos;
+    for (my $k=1;$k<=$#AAInfo;++$k)
+    {
+	my @data=split ",", $AAInfo[$k];
+	$infos{$data[0]}=&parse_formula($data[2]);
+	$infos{$data[0]}{charge}=$data[3];
+    }
+
+    my %aa_abbrev;
+    $aa_abbrev{"Ala"} = "A";
+    $aa_abbrev{"Arg"} = "R";
+    $aa_abbrev{"Asn"} = "N";
+    $aa_abbrev{"Asp"} = "D";
+    $aa_abbrev{"Cys"} = "C";
+    $aa_abbrev{"Gln"} = "Q";
+    $aa_abbrev{"Glu"} = "E";
+    $aa_abbrev{"Gly"} = "G";
+    $aa_abbrev{"His"} = "H";
+    $aa_abbrev{"Ile"} = "I";
+    $aa_abbrev{"Leu"} = "L";
+    $aa_abbrev{"Lys"} = "K";
+    $aa_abbrev{"Met"} = "M";
+    $aa_abbrev{"Phe"} = "F";
+    $aa_abbrev{"Pro"} = "P";
+    $aa_abbrev{"SeC(p)"} = "Sec";
+    $aa_abbrev{"Ser"} = "S";
+    $aa_abbrev{"Thr"} = "T";
+    $aa_abbrev{"Trp"} = "W";
+    $aa_abbrev{"Tyr"} = "Y";
+    $aa_abbrev{"Val"} = "V";
+
+    # read factors.txt and calculate formula and charge
+    my (%factors, %formulae);
+
+    open (FACTORS, "../data/factors.txt") or die("Couldn't open factors.txt: $!");
+    while (<FACTORS>) {
+	chomp;
+	my ($category, $fname, $fr, $formula, $charge) = split "\t";
+	$factors{$category}{$fname} = 1 if defined $category;
+	if (! defined $formula) {
+	    if (exists $fr2gene{$fr}) {
+		my %m_count = &mature_count(&aa_count($aa_seq{$fr2gene{$fr}}, \%infos));
+		my $multiplier = 1;
+		if ($fname =~ /_hexa$/) {
+		    $multiplier = 6;
+		}
+		elsif ($fname =~ /_dim$/) {
+		    $multiplier = 2;
+		}
+		if ($multiplier > 1) {
+		    foreach my $key (keys %m_count) {
+			$m_count{$key} *= $multiplier;
+		    }
+		}
+		my %extra;
+		if ($fname =~ /\.GDP$/) {
+		    %extra = ( 'C' => 10, 'H' => 13, 'N' => 5, 'O' => 11, 'P' => 2, 'charge' => -2 );
+		}
+		elsif ($fname =~ /\.GTP$/) {
+		    %extra = ( 'C' => 10, 'H' => 16, 'N' => 5, 'O' => 14, 'P' => 3, 'charge' => -3 );
+		}
+		elsif ($fname =~ /\.me\.spmd$/) {
+		    %extra = ( 'C' => 11, 'H' => 33, 'N' => 4, 'charge' => 3 );
+		}
+		elsif ($fname =~ /\.spmd$/) {
+		    %extra = ( 'C' => 10, 'H' => 30, 'N' => 4, 'charge' => 4 );
+		}
+		if (keys %extra > 0) {
+		    foreach my $key (keys %extra) {
+			$m_count{$key} += $extra{$key};
+		    }
+		}
+		$formulae{$fname} = \%m_count;
+	    }
+	    else {
+		print STDERR "No gene defined for '$fr' [$fname]\n";
+	    }
+	}
+	else {
+	    $formulae{$fname} = parse_formula($formula);
+	    $formulae{$fname}{charge} = $charge;
+	}
+    }
+
+    # now we can calculate the EF-Tu.GTP.trnas
+    foreach my $trna (keys %formula_tRNA) {
+	my %formula = %{$formulae{"EF-Tu.GTP"}};
+	if ($trna =~ /^tRNA\-(\w+)\-\w{3}$/) {
+	    my $abbrev = $aa_abbrev{$1};
+	    map { $formula{$_} += $formula_tRNA{$trna}{$_} } keys %{$formula_tRNA{$trna}};
+	    map { $formula{$_} += $infos{$abbrev}{$_} } keys %{$infos{$abbrev}};
+	}
+	$formulae{"EF-Tu.GTP.$trna"} = \%formula;
+    }
+
+    ###########################################
+    # Molecular Weight of different Elements
+    ###########################################
+    my %mw;
+    $mw{C}=12.0107;
+    $mw{H}=1.00794;
+    $mw{O}=15.9994;
+    $mw{N}=14.0067;
+    $mw{P}=30.973762;
+    $mw{Mg}=24.3050;
+    $mw{Zn}=65.409;
+    $mw{Fe}=55.845;
+    $mw{S}=32.065;
+    $mw{Se}=78.96;
+
+    ## GENETIC CODE
+    my %genetic_code;
+    map { $genetic_code{'11'}{'Ala'}{$_} = 1 } ('GCT','GCA','GCG','GCC');
+    map { $genetic_code{'11'}{'Arg'}{$_} = 1 } ('CGT','CGC','CGA','AGA','AGG','CGG');
+    map { $genetic_code{'11'}{'Asn'}{$_} = 1 } ('AAC','AAT');
+    map { $genetic_code{'11'}{'Asp'}{$_} = 1 } ('GAC','GAT');
+    map { $genetic_code{'11'}{'Cys'}{$_} = 1 } ('TGC','TGT');
+    map { $genetic_code{'11'}{'Gln'}{$_} = 1 } ('CAG','CAA');
+    map { $genetic_code{'11'}{'Glu'}{$_} = 1 } ('GAA','GAG');
+    map { $genetic_code{'11'}{'Gly'}{$_} = 1 } ('GGC','GGT','GGA','GGG');
+    map { $genetic_code{'11'}{'His'}{$_} = 1 } ('CAC','CAT');
+    map { $genetic_code{'11'}{'Ile'}{$_} = 1 } ('ATC','ATT','ATA');
+    map { $genetic_code{'11'}{'Leu'}{$_} = 1 } ('CTG','CTC','CTT','CTA','TTG','TTA');
+    map { $genetic_code{'11'}{'Lys'}{$_} = 1 } ('AAA','AAG');
+    map { $genetic_code{'11'}{'Met'}{$_} = 1 } ('ATG');
+    map { $genetic_code{'11'}{'Phe'}{$_} = 1 } ('TTC','TTT');
+    map { $genetic_code{'11'}{'Pro'}{$_} = 1 } ('CCG','CCC','CCT','CCA');
+    map { $genetic_code{'11'}{'Ser'}{$_} = 1 } ('TCC','TCT','TCA','TCG','AGC','AGT');
+    map { $genetic_code{'11'}{'Thr'}{$_} = 1 } ('ACC','ACT','ACA','ACG');
+    map { $genetic_code{'11'}{'Trp'}{$_} = 1 } ('TGG');
+    map { $genetic_code{'11'}{'Tyr'}{$_} = 1 } ('TAC','TAT');
+    map { $genetic_code{'11'}{'Val'}{$_} = 1 } ('GTA','GTG','GTC','GTT');
+
+    map { $genetic_code{'4'}{'Ala'}{$_} = 1 } ('GCT','GCA','GCG','GCC');
+    map { $genetic_code{'4'}{'Arg'}{$_} = 1 } ('CGT','CGC','CGA','AGA','AGG','CGG');
+    map { $genetic_code{'4'}{'Asn'}{$_} = 1 } ('AAC','AAT');
+    map { $genetic_code{'4'}{'Asp'}{$_} = 1 } ('GAC','GAT');
+    map { $genetic_code{'4'}{'Cys'}{$_} = 1 } ('TGC','TGT');
+    map { $genetic_code{'4'}{'Gln'}{$_} = 1 } ('CAG','CAA');
+    map { $genetic_code{'4'}{'Glu'}{$_} = 1 } ('GAA','GAG');
+    map { $genetic_code{'4'}{'Gly'}{$_} = 1 } ('GGC','GGT','GGA','GGG');
+    map { $genetic_code{'4'}{'His'}{$_} = 1 } ('CAC','CAT');
+    map { $genetic_code{'4'}{'Ile'}{$_} = 1 } ('ATC','ATT','ATA');
+    map { $genetic_code{'4'}{'Leu'}{$_} = 1 } ('CTG','CTC','CTT','CTA','TTG','TTA');
+    map { $genetic_code{'4'}{'Lys'}{$_} = 1 } ('AAA','AAG');
+    map { $genetic_code{'4'}{'Met'}{$_} = 1 } ('ATG');
+    map { $genetic_code{'4'}{'Phe'}{$_} = 1 } ('TTC','TTT');
+    map { $genetic_code{'4'}{'Pro'}{$_} = 1 } ('CCG','CCC','CCT','CCA');
+    map { $genetic_code{'4'}{'Ser'}{$_} = 1 } ('TCC','TCT','TCA','TCG','AGC','AGT');
+    map { $genetic_code{'4'}{'Thr'}{$_} = 1 } ('ACC','ACT','ACA','ACG');
+    map { $genetic_code{'4'}{'Trp'}{$_} = 1 } ('TGG','TGA');
+    map { $genetic_code{'4'}{'Tyr'}{$_} = 1 } ('TAC','TAT');
+    map { $genetic_code{'4'}{'Val'}{$_} = 1 } ('GTA','GTG','GTC','GTT');
+
+    my %LastCodon;
+    $LastCodon{"TAA"}=1;
+    $LastCodon{"TAG"}=1;
+    delete $factors{LastCodonsFactors}{"RF1_mono"};
+    delete $factors{LastCodonsFactors}{"RF2_mono"};
+    $factors{LastCodonsFactors}{"RF1_mono"}{"TAA"}=1;
+    $factors{LastCodonsFactors}{"RF1_mono"}{"TAG"}=1;
+    $factors{LastCodonsFactors}{"RF2_mono"}{"TAA"}=1;
+
+    if ($assigned_code == '11') {
+	$factors{LastCodonsFactors}{"RF2_mono"}{"TGA"}=1;
+	$LastCodon{"TGA"}=1;
+    }
+
+    ## BEGIN LOAD FUNCTIONAL ROLES for tRNAs
+    my %list_tRNA;
+    my %code_tRNA;
+
+    # try Gary's rules
+    my %cm = ( "A" => "T", "T" => "A", "G" => "C", "C" => "G" );
+    my %default_codon_assignment; # just in case we leave a codon unassigned after applying Gary's rules
+
+    foreach my $fr (keys %formula_tRNA) {
+	if ($fr =~ /^tRNA-(.*)-([ACGT]{3})$/) {
+	    my $aa_name = $1;
+	    my $anti_codon = $2;
+	    if (! exists $aa_abbrev{$aa_name}) {
+		print STDERR "No abbreviation available for amino acid name: $aa_name\n";
+	    }
+	    else {
+		$list_tRNA{$fr} = $aa_abbrev{$aa_name};
+
+		my %gary_codons;
+		if ($aa_name eq "Met" && $anti_codon eq "CAT") {
+		    $gary_codons{"ATG"} = 1;
+		}
+		elsif ($aa_name eq "Ile" && $anti_codon eq "CAT") {
+		    $gary_codons{"ATA"} = 1;
+		}
+		elsif ($aa_name eq "SeC(p)" && $anti_codon eq "TCA") {
+		    $gary_codons{"AGT"} = 1;
+		}
+		elsif ($anti_codon =~ /^A(.)(.)/) {
+		    $gary_codons{$cm{$2}.$cm{$1}."T"} = 1;
+		}
+		elsif ($anti_codon =~ /^C(.)(.)/) {
+		    $gary_codons{$cm{$2}.$cm{$1}."G"} = 1;
+		}
+		elsif ($anti_codon =~ /^G(.)(.)/) {
+		    $gary_codons{$cm{$2}.$cm{$1}."C"} = 1;
+		    $gary_codons{$cm{$2}.$cm{$1}."T"} = 1;
+		}
+		elsif ($anti_codon =~ /^T(.)(.)/) {
+		    $gary_codons{$cm{$2}.$cm{$1}."A"} = 1;
+		    $gary_codons{$cm{$2}.$cm{$1}."G"} = 1;
+		}
+
+		# at this point we will only assign codons that are in the genetic code
+		# AND are in gary's code
+		foreach my $codon (keys %{$genetic_code{$assigned_code}{$aa_name}}) {
+		    if (exists $gary_codons{$codon}) {
+			$code_tRNA{$codon}{trna} = $fr;
+			$code_tRNA{$codon}{aa} = $aa_abbrev{$aa_name};
+		    }
+		    else {
+			# just in case it doesn't get assigned later
+			$default_codon_assignment{$codon}{trna} = $fr;
+			$default_codon_assignment{$codon}{aa} = $aa_abbrev{$aa_name};
+		    }
+		}
+	    }
+	}
+    }
+
+    # now make sure that there all codons are assigned
+    foreach my $aa_name (keys %{$genetic_code{$assigned_code}}) {
+	foreach my $codon (keys %{$genetic_code{$assigned_code}{$aa_name}}) {
+	    if (! exists $code_tRNA{$codon}) {
+		print STDERR "No tRNA assignment for codon $codon\n";
+		if (exists $default_codon_assignment{$codon}) {
+		    print STDERR "\t assigning $default_codon_assignment{$codon}{trna}\n";
+		    $code_tRNA{$codon}{trna} = $default_codon_assignment{$codon}{trna};
+		    $code_tRNA{$codon}{aa} = $default_codon_assignment{$codon}{aa};
+		}
+		else {
+		    print STDERR "\t NO DEFAULT ASSIGNMENT!\n";
+		}
+	    }
+	}
+    }
+
+    # sets sigma factor 70 as default sigma factor
+    my $rnap='RNAP_70';
+    my $sigm='RpoD_mono';
+
+    my (%reactions, %compounds);
+
+    foreach my $feature (@{$genome->{features}}) {
+	my $gene = $feature->{id};
+	$gene =~ s/\W/_/g;
+	my $fr = $feature->{function};
+	my $type = $feature->{type};
+	my $cds = &get_dna($feature, $contigset);
+#	print STDERR "Processing $gene [$fr] of type $type\n";
 
 	# CHECK THIS
 	$type = "tRNA" if $type =~ /rna/ && $fr =~ /^tRNA-.*-[ACGT]{3}$/;
@@ -710,6 +1059,7 @@ sub build_me_model
 		$rxn2 .= "+ $factors{RNAP}{$factor} $factor ";
 	    }
 	    $rxn2 .= "+ 3 adp + 3 pi + 3 h\tirreversible\tTranscription\t".(($cdsA+$cdsC+$cdsG+$cdsU)/45)." (45nt/s) to ".(($cdsA+$cdsC+$cdsG+$cdsU)/40)." (40nt/s) 1/s\n";
+	    push @{$reactions{$gene}}, $rxn2;
 	}
 	elsif ($type =~ /RNA/i)
 	{
@@ -759,6 +1109,7 @@ sub build_me_model
 		$rxn3 .= "+ $factors{TranscriptionTerminationRNA}{$factor} $factor ";
 	    }						
 	    $rxn3 .= "--> 1 transcr_elo_$gene\_cplx\treversible\tTranscription\n";
+	    push @{$reactions{$gene}}, $rxn3;
 	    
 	    my $rxn4 = "tscr_elo_term_$gene\_stab\tTranscription elongation and termination of $gene (stable RNA) (, $gene)\t1 transcr_elo_$gene\_cplx + ".(${cdsA}-${firstA})." atp + ".(${cdsC}-${firstC})." ctp + ".(${cdsG}-${firstG})." gtp + ".(${cdsU}-${firstU})." utp --> 1 $gene\_DNA_neu + 1 $gene\_RNA + ".((${cdsA}-${firstA})+(${cdsC}-${firstC})+(${cdsG}-${firstG})+(${cdsU}-${firstU}))." ppi ";
 
@@ -772,6 +1123,7 @@ sub build_me_model
 	    }
 
 	    $rxn4 .= "+ 3 adp + 3 pi + 3 h\tirreversible\tTranscription\t".((${cdsA}+${cdsC}+${cdsG}+${cdsU})/90)." (90nt/s) to ".((${cdsA}+${cdsC}+${cdsG}+${cdsU})/80)." (80nt/s) 1/s\n";
+	    push @{$reactions{$gene}}, $rxn4;
 	}
 	else {
 	    print STDERR "skipping $gene of type $type\n";
@@ -898,6 +1250,7 @@ sub build_me_model
 		$rxn5 .= "+ ".($a*$factors{TranslationIniOut}{$factor})." $factor ";
 	    }		
 	    $rxn5 .= "+ $a pi + $a h\tirreversible\tTranslation\n";
+	    push @{$reactions{$gene}}, $rxn5;
 
 	    #####################
 	    #addition of formyl-methionine tRNA, rib_30 subunit
@@ -1112,6 +1465,7 @@ sub build_me_model
 		$rxn6 .= "+ ".(${sum_aa}*$a*$factors{TranslationEF_G_GTP}{$factor})." $factor ";
 	    }
 	    $rxn6 .= "--> 1 rib_70_elo1_$gene\_$a\_cplx\tirreversible\tTranslation\n";
+	    push @{$reactions{$gene}}, $rxn6;
 
 	    #################
 	    # WRITING OF rib_70_$gene\_$a\_cplx COMPOUND
@@ -1178,6 +1532,7 @@ sub build_me_model
 		}
 	    }
 	    $rxn7 .= "\tirreversible\tTranslation\n";
+	    push @{$reactions{$gene}}, $rxn7;
 	    
 	    #####################
 	    # Translation TERMINATION
@@ -1218,6 +1573,7 @@ sub build_me_model
 	    }				
 	    #THINK 
 	    $rxn8 .= "+ $a $rf --> 1 tl_term_$gene\_$a\_rib_cplx\treversible\tTranslation\n";
+	    push @{$reactions{$gene}}, $rxn8;
 
 	    ####
 	    # Write tl_term_$gene\_$a\_rib2
@@ -1257,6 +1613,7 @@ sub build_me_model
 	    {
 		my $trna=${second_last_codon};
 		$rxn9 .= "$trna\tirreversible\tTranslation\n";
+		push @{$reactions{$gene}}, $rxn9;
 	    }
 
 	    if ($rfx ne '')
@@ -1268,6 +1625,7 @@ sub build_me_model
 		    $rxn11 .= "+ ".($a*$factors{TranslationTerm}{$factor})." $factor ";
 		}					
 		$rxn11 .= "--> 1 tl_term_$gene\_$a\_rib_cplx2\treversible\tTranslation\n";
+		push @{$reactions{$gene}}, $rxn11;
 		
 		my $rxn22 = "tl_term_$gene\_$a\_rib_RF2_2\tTranslation termination 2 $gene $a ribosome(s), RF2\t1 tl_term_$gene\_$a\_rib_cplx2 + $a gtp + ".(2*$a)." h2o --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a gdp + ".(3*$a)." h + ".(3*$a)." pi + $a $rfx ";
 
@@ -1294,6 +1652,7 @@ sub build_me_model
 		$rxn22 .= "+ $a ";
 		my $trna=${second_last_codon};
 		$rxn22 .= "$trna\tirreversible\tTranslation\n";
+		push @{$reactions{$gene}}, $rxn22;
 		
 		###################
 		# CREATES tl_term_$gene\_$a\_rib_cplx complex, contains: rib_70_elo2_$gene\_$a, $a*RF3_mono.GDP, $a*Rrf_mono, $a*rfx (RF2_mono)
@@ -1393,6 +1752,7 @@ sub build_me_model
 	    $rxn33 .= "+ ".($factors{mRNAdegradation}{$factor})." $factor ";
 	}		
 	$rxn33 .= "+ $cds_length atp + $cds_length h2o --> 1 $gene\_mRNA_2_degr + $cds_length adp + $cds_length pi + $cds_length h \treversible\tmRNA degradation\n"; #accounts for unwinding of ds mRNA; based on Gralla and DiLisi, 1974, Nature, 248,330-332 --> found that 50% of randomly generated mRNA has to be ds mRNA
+	push @{$reactions{$gene}}, $rxn33;
 	
 	###
 	# WRITE $cds\_mRNA_degr2
@@ -1439,6 +1799,7 @@ sub build_me_model
 	{
 	    $rxn44 .= "\tmRNA degradation\n";
 	}
+	push @{$reactions{$gene}}, $rxn44;
 
 	###
 	# WRITE $gen\_maturation1
@@ -1450,7 +1811,9 @@ sub build_me_model
 	{				
 	    $rxn55 .= "+ $factors{ProtMaturationDef}{$factor} $factor ";
 	}
-	$rxn55 .= "--> 1 $gene\_def_cplx\treversible\tProtein Maturation\tno matured protein available-missing entry\n";												
+	$rxn55 .= "--> 1 $gene\_def_cplx\treversible\tProtein Maturation\tno matured protein available-missing entry\n";
+	push @{$reactions{$gene}}, $rxn55;
+
 	###
 	# WRITE $gene\_maturation2
 	#  needs $factors{Def_mono}{ProtMaturationDef} = 1;
@@ -1462,6 +1825,7 @@ sub build_me_model
 	    $rxn66 .= "+ $factors{ProtMaturationDef}{$factor} $factor ";
 	}
 	$rxn66 .= "+ 1 for\tirreversible\tProtein Maturation\tno matured protein available-missing entry\n";
+	push @{$reactions{$gene}}, $rxn66;
 	
 	my ${mat_C} = $aa_count{C}; 			
 	my ${mat_H} = $aa_count{H}; 
@@ -1547,6 +1911,17 @@ sub build_me_model
 	    'hidden' => 1,
 	    'provenance' => $provenance
 		      }]});
+
+    my $test = "kb|g.0.peg.839";
+    $test =~ s/\W/_/g;
+
+    foreach my $cpd (@{$compounds{$test}}) {
+	print STDERR $cpd, "\n";
+    }
+
+    foreach my $rxn (@{$reactions{$test}}) {
+	print STDERR $rxn, "\n";
+    }
 
     $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4] };
 
