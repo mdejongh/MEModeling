@@ -1047,6 +1047,7 @@ sub build_me_model
 		$rxn .= "+ $factors{RhoDependentTranscriptionTerminationCDS}{$factor} $factor ";
 	    }		
 	    $rxn .= "--> 1 transcr_elo_$gene\_cplx\treversible\tTranscription\n";
+	    push @{$reactions{$gene}}, $rxn;
 
 	    # elongation and termination
 	    my $rxn2 = "tscr_elo_term_$gene\_rho_dep\tTranscription elongation and RHO DEPENDENT termination of $gene\t1 transcr_elo_$gene\_cplx + 3 h2o + ".($cdsA-$firstA+3)." atp + ".($cdsC-$firstC)." ctp + ".($cdsG-$firstG)." gtp + ".($cdsU-$firstU)." utp --> 1 $gene\_DNA_neu + 1 $gene\_mRNA + ".(($cdsA-$firstA)+($cdsC-$firstC)+($cdsG-$firstG)+($cdsU-$firstU))." ppi ";
@@ -1912,18 +1913,7 @@ sub build_me_model
 	    'provenance' => $provenance
 		      }]});
 
-    my $test = "kb|g.0.peg.839";
-    $test =~ s/\W/_/g;
-
-    foreach my $cpd (@{$compounds{$test}}) {
-	print STDERR $cpd, "\n";
-    }
-
-    foreach my $rxn (@{$reactions{$test}}) {
-	print STDERR $rxn, "\n";
-    }
-
-    $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4] };
+    $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4], 'reactions'=>\%reactions, 'compounds'=>\%compounds };
 
     #END build_me_model
     my @_bad_returns;

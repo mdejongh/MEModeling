@@ -57,10 +57,144 @@ eval {
 	print STDERR "Done\n";
     };
     print "$@\n";
-    use Data::Dumper;
-    print &Dumper($result);
+
+    # apply petri-net test
+    my %b0014 = petri('kb|g.0.peg.839',$result->{reactions},$result->{compounds});
+    my @zeros = grep { $b0014{$_} == 0 } keys %b0014;
+    delete @b0014{@zeros};
+    print STDERR &Dumper(\%b0014);
+
     done_testing(0);
 };
+
+sub petri {
+    my %free = map { $_ => 1 } qw/gtp 
+Ala
+Arg
+Asn
+Asp
+Cys
+Gln
+Glu
+Gly
+His
+Ile
+Leu
+Lys
+Met
+Phe
+Pro
+SeC(p)
+Ser
+Thr
+Trp
+Tyr
+Val
+ /;
+
+    my ($gene,$reactions,$componds) = @_;
+    $gene =~ s/\W/_/g;
+
+    my %rxns2substrates;
+    my %rxns2products;
+    my %revrxns;
+    my %recycling;
+
+    sub myrib {
+	if ($a =~ /tl_ini_.*_(\d+)_rib/) {
+	    my $arib = $1;
+	    if ($b =~ /tl_ini_.*_(\d+)_rib/) {
+		my $brib = $1;
+		return $arib <=> $brib;
+	    }
+	}
+
+	return $a cmp $b;
+    }
+
+    my @reactions = (@{$reactions->{$gene}}, @{$reactions->{Recycling}});
+
+    foreach (@reactions) {
+	chomp;
+	my ($id, $def, $equation, $rev, $subsys) = split "\t";
+	my ($substrates, $products) = split /-->/, $equation;
+
+	if ($subsys eq "Sinks" && $products eq "") {
+	    $products = $substrates;
+	    $substrates = "1 START_TOKEN";
+	    $rev = "irreversible";
+	}
+	elsif ($subsys =~ "Recycling") {
+	    $recycling{$id."_f"} = 1;
+	    $recycling{$id."_r"} = 1;
+	}
+
+	while ($substrates =~ /(\d+)\s(\S+)/g) {
+	    $rxns2substrates{$id."_f"}{$2} = $1;
+	    if ($rev eq "reversible") {
+		$rxns2products{$id."_r"}{$2} = $1;	    
+		$revrxns{$id."_r"} = $id."_f";
+		$revrxns{$id."_f"} = $id."_r";
+	    }
+	    elsif ($rev ne "irreversible") {
+		print STDERR "strange: $rev\n";
+	    }
+	}
+	while ($products =~ /(\d+)\s(\S+)/g) {
+	    $rxns2products{$id."_f"}{$2} = $1;
+	    if ($rev eq "reversible") {
+		$rxns2substrates{$id."_r"}{$2} = $1;	    
+	    }
+	}
+    }
+
+    my %pool = ( "START_TOKEN" => 1, "EF-Ts" => 1 );
+    my %used_rxns;
+    my $recycle = 0;
+
+    while (1) {
+	my $fired = 0;
+
+	foreach my $rxn (sort myrib keys %rxns2substrates) {
+	    next if $recycle == 0 && $used_rxns{$rxn} == 1;
+	    next if $recycle == 0 && exists $recycling{$rxn};
+	    next if $recycle == 1 && ! exists $recycling{$rxn};
+	    my $ready = 1;
+
+	    foreach my $cpd (keys $rxns2substrates{$rxn}) {
+		if ((($recycle == 0 && $cpd =~ /$gene/) || ($recycle == 1 && (! exists $free{$cpd}))) && $pool{$cpd} < $rxns2substrates{$rxn}{$cpd}) {
+		    $ready = 0;
+		    last;
+		}
+	    }
+
+	    if ($ready == 1) {
+		print STDERR "Firing $rxn\n" if $recycle == 0;
+		foreach my $cpd (keys $rxns2substrates{$rxn}) {
+		    $pool{$cpd} -= $rxns2substrates{$rxn}{$cpd};
+		}
+		foreach my $cpd (keys $rxns2products{$rxn}) {
+		    $pool{$cpd} += $rxns2products{$rxn}{$cpd};
+		}
+		$fired = 1;
+		$used_rxns{$rxn} = 1;
+		$used_rxns{$revrxns{$rxn}} = 1;
+	    }
+	}
+
+	if ($fired == 0) {
+	    if ($recycle == 0) {
+		print STDERR "Switching to recycling\n";
+		$recycle = 1;
+	    }
+	    else {
+		last;
+	    }
+	}
+    }
+    return %pool;
+}
+
 my $err = undef;
 if ($@) {
     $err = $@;
