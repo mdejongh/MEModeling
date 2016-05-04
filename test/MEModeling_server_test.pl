@@ -56,19 +56,59 @@ eval {
         $result = $impl->build_me_model(get_ws_name, $obj_name2);
 	print STDERR "Done\n";
     };
-    print "$@\n";
+    print "$@\n" if defined $@;
 
     # apply petri-net test
     my %b0014 = petri('kb|g.0.peg.839',$result->{reactions},$result->{compounds});
-    my @zeros = grep { $b0014{$_} == 0 } keys %b0014;
-    delete @b0014{@zeros};
     print STDERR &Dumper(\%b0014);
 
     done_testing(0);
 };
 
 sub petri {
-    my %free = map { $_ => 1 } qw/gtp 
+
+    my %cpd_map = (
+	'mg2' => 'cpd00254',
+	'amp' => 'cpd00018',
+	'Lys' => 'cpd00039',
+	'Arg' => 'cpd00051',
+	'Glu' => 'cpd00053',
+	'Asp' => 'cpd00041',
+	'Phe' => 'cpd00066',
+	'Met' => 'cpd00060',
+	'Ile' => 'cpd00322',
+	'Val' => 'cpd00156',
+	'Gly' => 'cpd00033',
+	'His' => 'cpd00119',
+	'gtp' => 'cpd00038',
+	'gdp' => 'cpd00031',
+	'ppi' => 'cpd00012',
+	'ump' => 'cpd00091',
+	'Tyr' => 'cpd00069',
+	'Asn' => 'cpd00132',
+	'Pro' => 'cpd00129',
+	'atp' => 'cpd00002',
+	'gmp' => 'cpd00126',
+	'utp' => 'cpd00062',
+	'Thr' => 'cpd00161',
+	'Ala' => 'cpd00035',
+	'pi' => 'cpd00009',
+	'Ser' => 'cpd00054',
+	'h2o' => 'cpd00001',
+	'adp' => 'cpd00008',
+	'Gln' => 'cpd00053',
+	'ctp' => 'cpd00052',
+	'h' => 'cpd00067',
+	'Leu' => 'cpd00107',
+	'cmp' => 'cpd00046',
+	'Cys' => 'cpd00084',
+	'Trp' => 'cpd00065'
+	);
+
+    my %rev_cpd_map = reverse %cpd_map;
+
+    my %free = map { $cpd_map{$_} => 1 } qw/
+gtp 
 Ala
 Arg
 Asn
@@ -192,7 +232,19 @@ Val
 	    }
 	}
     }
-    return %pool;
+
+    my %final_pool;
+    foreach my $cpd (keys %pool) {
+	if ($pool{$cpd} != 0) {
+	    if (exists $rev_cpd_map{$cpd}) {
+		$final_pool{$rev_cpd_map{$cpd}} = $pool{$cpd};
+	    }
+	    else {
+		$final_pool{$cpd} = $pool{$cpd};
+	    }
+	}
+    }
+    return %final_pool;
 }
 
 my $err = undef;
