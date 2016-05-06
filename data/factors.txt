@@ -1,3 +1,4 @@
+TranscriptionSigmaFactor	RpoD_mono	RNA polymerase sigma factor RpoD
 ProtMaturationDef	Def_mono	Peptide deformylase (EC 3.5.1.88)
 TranslationEF_G_GDP	EF-G.GDP	Translation elongation factor G
 TranslationEF_G_GTP	EF-G.GTP	Translation elongation factor G

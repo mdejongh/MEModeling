@@ -56,11 +56,11 @@ eval {
         $result = $impl->build_me_model(get_ws_name, $obj_name2);
 	print STDERR "Done\n";
     };
-    print "$@\n" if defined $@;
+    print STDERR "$@\n" if defined $@;
 
     # apply petri-net test
-    my %b0014 = petri('kb|g.0.peg.839',$result->{reactions},$result->{compounds});
-    print STDERR &Dumper(\%b0014);
+    my %test = petri('kb|g.0.peg.3800',$result->{reactions},$result->{compounds});
+    print STDERR &Dumper(\%test);
 
     done_testing(0);
 };
@@ -72,7 +72,7 @@ sub petri {
 	'amp' => 'cpd00018',
 	'Lys' => 'cpd00039',
 	'Arg' => 'cpd00051',
-	'Glu' => 'cpd00053',
+	'Glu' => 'cpd00023',
 	'Asp' => 'cpd00041',
 	'Phe' => 'cpd00066',
 	'Met' => 'cpd00060',
@@ -152,11 +152,22 @@ Val
 	return $a cmp $b;
     }
 
+
+    my $idprefix = "me_rxn";
+    my $i = 0;
+
     my @reactions = (@{$reactions->{$gene}}, @{$reactions->{Recycling}});
 
     foreach (@reactions) {
+	# id	direction	compartment	gpr	name	enzyme	pathway	reference	equation
 	chomp;
 	my ($id, $def, $equation, $rev, $subsys) = split "\t";
+
+	print $idprefix.($i++)."[c0]", "\t";
+	my $arrow = ($rev eq "irreversible" ? "=>" : "<=>");
+	print $arrow, "\t";
+	print "c0\t\t$id\t\t\t\t";
+
 	my ($substrates, $products) = split /-->/, $equation;
 
 	if ($subsys eq "Sinks" && $products eq "") {
@@ -169,23 +180,37 @@ Val
 	    $recycling{$id."_r"} = 1;
 	}
 
+	my @subs;
 	while ($substrates =~ /(\d+)\s(\S+)/g) {
-	    $rxns2substrates{$id."_f"}{$2} = $1;
+	    my $coef = $1;
+	    my $sub = $2;
+	    $rxns2substrates{$id."_f"}{$sub} = $coef;
 	    if ($rev eq "reversible") {
-		$rxns2products{$id."_r"}{$2} = $1;	    
+		$rxns2products{$id."_r"}{$sub} = $coef;	    
 		$revrxns{$id."_r"} = $id."_f";
 		$revrxns{$id."_f"} = $id."_r";
 	    }
 	    elsif ($rev ne "irreversible") {
-		print STDERR "strange: $rev\n";
+		print "strange: $rev\n";
 	    }
+	    next if $sub eq "START_TOKEN";
+	    
+	    push @subs, "($coef) ${sub}[c0]";
 	}
+
+	my @prods;
 	while ($products =~ /(\d+)\s(\S+)/g) {
-	    $rxns2products{$id."_f"}{$2} = $1;
+	    my $coef = $1;
+	    my $prod = $2;
+	    $rxns2products{$id."_f"}{$prod} = $coef;
 	    if ($rev eq "reversible") {
-		$rxns2substrates{$id."_r"}{$2} = $1;	    
+		$rxns2substrates{$id."_r"}{$prod} = $coef;	    
 	    }
+
+	    push @prods, "($coef) ${prod}[c0]";
 	}
+
+	print join(" + ", @subs), " ", $arrow, " ", join(" + ", @prods), "\n";
     }
 
     my %pool = ( "START_TOKEN" => 1, "EF-Ts" => 1 );
@@ -254,7 +279,7 @@ if ($@) {
 eval {
     if (defined($ws_name)) {
         $ws_client->delete_workspace({workspace => $ws_name});
-        print("Test workspace was deleted\n");
+        print STDERR ("Test workspace was deleted\n");
     }
 };
 if (defined($err)) {
