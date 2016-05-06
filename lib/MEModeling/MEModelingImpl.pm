@@ -468,7 +468,7 @@ sub build_me_model
     while (<FACTORS>) {
 	chomp;
 	my ($category, $fname, $fr, $formula, $charge) = split "\t";
-	if (! exists $fr2gene{$fr}) {
+	if ($fr ne "" && ! exists $fr2gene{$fr}) {
 	    print STDERR "No gene defined for TT factor '$fr' [$fname]\n";
 	    next;
 	}
@@ -489,7 +489,14 @@ sub build_me_model
 	    $extra = "_spmd";
 	    %extra = ( 'C' => 10, 'H' => 30, 'N' => 4, 'charge' => 4 );
 	}
-	$factors{$category}{$fname} = $fr2gene{$fr}.$extra if defined $category;
+	if (defined $category) {
+	    if ($fr ne "") {
+		$factors{$category}{$fname} = $fr2gene{$fr}.$extra;
+	    }
+	    else {
+		$factors{$category}{$fname} = $fname;
+	    }
+	}
 	if (! defined $formula) {
 	    my %m_count = &mature_count(&aa_count($aa_seq{$fr2gene{$fr}}, \%infos));
 	    my $multiplier = 1;
@@ -1609,10 +1616,11 @@ sub build_me_model
 
 # MDJ: Add recycling reactions
     foreach my $factor (keys %{$factors{TranslationEF_TU_GDP}}) {
-	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_1\tEF-Tu.GDP dissociation with EF-Ts as intermediary\t1 $factors{TranslationEF_TU_GDP}{$factor} + 1 EF-Ts --> 1 EF-Tu-Ts + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
+	# leave EF-Tu-Ts because it is cycled intermediate
+	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_1\tEF-Tu.GDP dissociation with EF-Ts as intermediary\t1 $factors{TranslationEF_TU_GDP}{$factor} + 1 $factors{TranslationEF_TS}{'EF-Ts'} --> 1 EF-Tu-Ts + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
     }
     foreach my $factor (keys %{$factors{TranslationEF_TU_GTP}}) {
-	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_2\tEF-Tu-Ts dissociation with GTP charging\t1 EF-Tu-Ts + 1 $cpd_map{gtp} --> 1 $factors{TranslationEF_TU_GTP}{$factor} + 1 EF-Ts\tirreversible\tRecycling\n";
+	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_2\tEF-Tu-Ts dissociation with GTP charging\t1 EF-Tu-Ts + 1 $cpd_map{gtp} --> 1 $factors{TranslationEF_TU_GTP}{$factor} + 1 $factors{TranslationEF_TS}{'EF-Ts'}\tirreversible\tRecycling\n";
     }
 
     foreach my $trna (keys %list_tRNA) {
@@ -1636,10 +1644,9 @@ sub build_me_model
     }				
 
 # not sure how this happens exactly, but probably OK - NEED TO MASS BALANCE AND ADD COFACTORS (E.G., H2O?)
-    foreach my $factor (keys %{$factors{TranslationIniOut}}) {
-	push @{$reactions{"Recycling"}}, "IF2.GDP_cycle\tIF2.GDP dissociation\t1 $factors{TranslationIniOut}{$factor} --> 1 IF2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
-    }
-    push @{$reactions{"Recycling"}}, "Rib_cycle\tInactive 70S ribosome dissociation plus initiation factor binding\t1 rib_70 + 1 IF1 + 1 IF2 + 1 IF3 + $cpd_map{gtp} --> 1 rib_30_ini + 1 rib_50\tirreversible\tRecycling\n";
+# leave IF2 all by itself because it only appears in recycling reactions
+    push @{$reactions{"Recycling"}}, "IF2.GDP_cycle\tIF2.GDP dissociation\t1 $factors{TranslationIniOut}{'IF2.GDP'} --> 1 IF2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
+    push @{$reactions{"Recycling"}}, "Rib_cycle\tInactive 70S ribosome dissociation plus initiation factor binding\t1 $factors{TranslationElo2}{rib_70} + 1 $factors{TranslationIniFactors}{IF1} + 1 IF2 + 1 $factors{TranslationIniFactors}{IF3} + $cpd_map{gtp} --> 1 $factors{TranslationIni}{rib_30_ini} + 1 $factors{TranslationIni}{rib_50}\tirreversible\tRecycling\n";
     foreach my $factor (keys %{$factors{RNAP}}) {
 	push @{$reactions{"Recycling"}}, "RNAP_sigma_cycle_$factor\tRNAP ($factor) association with sigma factor\t1 $factors{RNAP}{$factor} + 1 $sigm --> 1 $rnap\tirreversible\tRecycling\n";
     }

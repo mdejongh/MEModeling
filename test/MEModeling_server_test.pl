@@ -213,7 +213,7 @@ Val
 	print join(" + ", @subs), " ", $arrow, " ", join(" + ", @prods), "\n";
     }
 
-    my %pool = ( "START_TOKEN" => 1, "EF-Ts" => 1 );
+    my %pool = ( "START_TOKEN" => 1, "kb_g_0_peg_1257" => 1 );
     my %used_rxns;
     my $recycle = 0;
 

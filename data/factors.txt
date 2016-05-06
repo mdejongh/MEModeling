@@ -4,6 +4,7 @@ TranslationEF_G_GDP	EF-G.GDP	Translation elongation factor G
 TranslationEF_G_GTP	EF-G.GTP	Translation elongation factor G
 TranslationEF_TU_GDP	EF-Tu.GDP	Translation elongation factor Tu
 TranslationEF_TU_GTP	EF-Tu.GTP	Translation elongation factor Tu
+TranslationEF_TS	EF-Ts	Translation elongation factor Ts
 RhoDependentTranscriptionTerminationCDS	GreA_mono	Transcription elongation factor GreA
 TranscriptionTerminationRNA	GreA_mono	Transcription elongation factor GreA
 RhoDependentTranscriptionTerminationCDS	GreB_mono	Transcription elongation factor GreB
