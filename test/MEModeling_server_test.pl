@@ -163,10 +163,10 @@ Val
 	chomp;
 	my ($id, $def, $equation, $rev, $subsys) = split "\t";
 
-	print $idprefix.($i++)."[c0]", "\t";
+	print STDERR $idprefix.($i++)."[c0]", "\t";
 	my $arrow = ($rev eq "irreversible" ? "=>" : "<=>");
-	print $arrow, "\t";
-	print "c0\t\t$id\t\t\t\t";
+	print STDERR $arrow, "\t";
+	print STDERR "c0\t\t$id\t\t\t\t";
 
 	my ($substrates, $products) = split /-->/, $equation;
 
@@ -191,7 +191,7 @@ Val
 		$revrxns{$id."_f"} = $id."_r";
 	    }
 	    elsif ($rev ne "irreversible") {
-		print "strange: $rev\n";
+		print STDERR "strange: $rev\n";
 	    }
 	    next if $sub eq "START_TOKEN";
 	    
@@ -210,10 +210,10 @@ Val
 	    push @prods, "($coef) ${prod}[c0]";
 	}
 
-	print join(" + ", @subs), " ", $arrow, " ", join(" + ", @prods), "\n";
+	print STDERR join(" + ", @subs), " ", $arrow, " ", join(" + ", @prods), "\n";
     }
 
-    my %pool = ( "START_TOKEN" => 1, "kb_g_0_peg_1257" => 1 );
+    my %pool = ( "START_TOKEN" => 1, "EF_Ts" => 1 );
     my %used_rxns;
     my $recycle = 0;
 

@@ -1,18 +1,18 @@
 TranscriptionSigmaFactor	RpoD_mono	RNA polymerase sigma factor RpoD
 ProtMaturationDef	Def_mono	Peptide deformylase (EC 3.5.1.88)
-TranslationEF_G_GDP	EF-G.GDP	Translation elongation factor G
-TranslationEF_G_GTP	EF-G.GTP	Translation elongation factor G
-TranslationEF_TU_GDP	EF-Tu.GDP	Translation elongation factor Tu
-TranslationEF_TU_GTP	EF-Tu.GTP	Translation elongation factor Tu
-TranslationEF_TS	EF-Ts	Translation elongation factor Ts
+TranslationEF_G_GDP	EF_G_GDP	Translation elongation factor G
+TranslationEF_G_GTP	EF_G_GTP	Translation elongation factor G
+TranslationEF_TU_GDP	EF_Tu_GDP	Translation elongation factor Tu
+TranslationEF_TU_GTP	EF_Tu_GTP	Translation elongation factor Tu
+TranslationEF_TS	EF_Ts	Translation elongation factor Ts
 RhoDependentTranscriptionTerminationCDS	GreA_mono	Transcription elongation factor GreA
 TranscriptionTerminationRNA	GreA_mono	Transcription elongation factor GreA
 RhoDependentTranscriptionTerminationCDS	GreB_mono	Transcription elongation factor GreB
 TranscriptionTerminationRNA	GreB_mono	Transcription elongation factor GreB
 TranslationIniFactors	IF1	Translation initiation factor 1
 TranslationIniOut	IF1	Translation initiation factor 1
-TranslationIniOut	IF2.GDP	Translation initiation factor 2
-TranslationIniFactors	IF2.GTP	Translation initiation factor 2
+TranslationIniOut	IF2_GDP	Translation initiation factor 2
+TranslationIniFactors	IF2_GTP	Translation initiation factor 2
 TranslationIniFactors	IF3	Translation initiation factor 3
 TranslationIniOut	IF3	Translation initiation factor 3
 RhoDependentTranscriptionTerminationCDS	Mfd_mono	Transcription-repair coupling factor
@@ -25,20 +25,19 @@ TranscriptionTerminationRNA	NusG_mono	Transcription antitermination protein NusG
 mRNAdegradation	Orn_dim	3'-to-5' oligoribonuclease (orn)
 LastCodonsFactors	RF1_mono	Peptide chain release factor 1
 LastCodonsFactors	RF2_mono	Peptide chain release factor 2
-TranslationTerm	RF3_mono.GDP	Peptide chain release factor 3
+TranslationTerm	RF3_mono_GDP	Peptide chain release factor 3
 RhoDependentTranscriptionTerminationCDS	Rho_hexa	Transcription termination factor Rho
 TranscriptionTerminationRNA	Rho_hexa	Transcription termination factor Rho
-TranscriptionTerminationRNA	RplC_mono.me.spmd	LSU ribosomal protein L3p (L3e)
+TranscriptionTerminationRNA	RplC_mono_me_spmd	LSU ribosomal protein L3p (L3e)
 TranscriptionTerminationRNA	RplD_mono	LSU ribosomal protein L4p (L1e)
 TranscriptionTerminationRNA	RplM_mono	LSU ribosomal protein L13p (L13Ae)
 RhoDependentTranscriptionTerminationCDS	RpoZ_mono	DNA-directed RNA polymerase omega subunit (EC 2.7.7.6)
 TranscriptionTerminationRNA	RpoZ_mono	DNA-directed RNA polymerase omega subunit (EC 2.7.7.6)
-TranscriptionTerminationRNA	RpsD_mono.spmd	SSU ribosomal protein S4p (S9e)
+TranscriptionTerminationRNA	RpsD_mono_spmd	SSU ribosomal protein S4p (S9e)
 TranscriptionTerminationRNA	RpsJ_mono	SSU ribosomal protein S10p (S20e)
 TranslationTerm	Rrf_mono	Ribosome recycling factor
 mRNAdegradation	degradosome		C38841H62541N11373O12127S188Zn2Mg4	-206
 RNAP	hRNAP		C16671H26941N4683O5133S113Zn1Mg2	-78
 TranslationIni	rib_30_ini		C35734H51424N12422O17021S113P1545Mg60	-1239
 TranslationIni	rib_50		C51997H71236N18783O27738Mg111S123P3024	-2496.14
-TranslationElo2	rib_70		C82283H113653N29569O43013S202P4566Mg171	-3727.14
-	fmet_tRNA_met		C741H854Mg2N298O540P77S2	-75
+TranslationElo2	rib_70		C82283H113653N29569O43013S202P4566Mg171	-3727.q14

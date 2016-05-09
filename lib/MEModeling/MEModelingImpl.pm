@@ -389,6 +389,7 @@ sub build_me_model
 	    $fr2gene{$fr} = $gene;
 	}
 	if ($fr =~ /^tRNA\-(\w+)\-\w{3}$/) {
+	    $fr =~ s/-/_/g;
 	    push @{$trna_seqs{$fr}}, uc $dna;
 	}
 	else {
@@ -473,29 +474,27 @@ sub build_me_model
 	    next;
 	}
 	my ($extra, %extra);
-	if ($fname =~ /\.GDP$/) {
+	if ($fname =~ /_GDP$/) {
 	    $extra = "_GDP";
 	    %extra = ( 'C' => 10, 'H' => 13, 'N' => 5, 'O' => 11, 'P' => 2, 'charge' => -2 );
 	}
-	elsif ($fname =~ /\.GTP$/) {
+	elsif ($fname =~ /_GTP$/) {
 	    $extra = "_GTP";
 	    %extra = ( 'C' => 10, 'H' => 16, 'N' => 5, 'O' => 14, 'P' => 3, 'charge' => -3 );
 	}
-	elsif ($fname =~ /\.me\.spmd$/) {
+	elsif ($fname =~ /_me_spmd$/) {
 	    $extra = "_me_spmd";
 	    %extra = ( 'C' => 11, 'H' => 33, 'N' => 4, 'charge' => 3 );
 	}
-	elsif ($fname =~ /\.spmd$/) {
+	elsif ($fname =~ /_spmd$/) {
 	    $extra = "_spmd";
 	    %extra = ( 'C' => 10, 'H' => 30, 'N' => 4, 'charge' => 4 );
 	}
-	if (defined $category) {
-	    if ($fr ne "") {
-		$factors{$category}{$fname} = $fr2gene{$fr}.$extra;
-	    }
-	    else {
-		$factors{$category}{$fname} = $fname;
-	    }
+	if ($fr ne "") {
+	    $factors{$category}{$fname} = $fr2gene{$fr}.$extra;
+	}
+	else {
+	    $factors{$category}{$fname} = $fname;
 	}
 	if (! defined $formula) {
 	    my %m_count = &mature_count(&aa_count($aa_seq{$fr2gene{$fr}}, \%infos));
@@ -526,14 +525,29 @@ sub build_me_model
 
     # now we can calculate the EF-Tu.GTP.trnas
     foreach my $trna (keys %formula_tRNA) {
-	my %formula = %{$formulae{"EF-Tu.GTP"}};
-	if ($trna =~ /^tRNA\-(\w+)\-\w{3}$/) {
+	my %formula = %{$formulae{"EF_Tu_GTP"}};
+	if ($trna =~ /^tRNA_(\w+)_\w{3}$/) {
 	    my $abbrev = $aa_abbrev{$1};
 	    map { $formula{$_} += $formula_tRNA{$trna}{$_} } keys %{$formula_tRNA{$trna}};
 	    map { $formula{$_} += $infos{$abbrev}{$_} } keys %{$infos{$abbrev}};
 	}
-	$formulae{"EF-Tu.GTP.$trna"} = \%formula;
+	$formulae{"EF_Tu.GTP_$trna"} = \%formula;
     }
+    
+    # now we can calculate the fmet_trna_met by averaging the trna_mets
+    my $trna_met_count = 0;
+    my %fmet_trna_met_formula;
+    foreach my $trna (keys %formula_tRNA) {
+	if ($trna =~ /^tRNA_(\w+)_\w{3}$/ && $aa_abbrev{$1} eq "M") {
+	    map { $fmet_trna_met_formula{$_} += $formula_tRNA{$trna}{$_} } keys %{$formula_tRNA{$trna}};
+	    map { $fmet_trna_met_formula{$_} += $infos{"M"}{$_} } keys %{$infos{"M"}};
+	    $trna_met_count++;
+	}
+    }
+    map { $fmet_trna_met_formula{$_} = int($fmet_trna_met_formula{$_}/$trna_met_count) } keys %fmet_trna_met_formula;
+    $fmet_trna_met_formula{C} = $fmet_trna_met_formula{C}++;
+    $fmet_trna_met_formula{O} = $fmet_trna_met_formula{O}++;
+    $formulae{"fmet_trna_met"} = \%fmet_trna_met_formula;
 
     ###########################################
     # Molecular Weight of different Elements
@@ -619,7 +633,7 @@ sub build_me_model
     my %default_codon_assignment; # just in case we leave a codon unassigned after applying Gary's rules
 
     foreach my $fr (keys %formula_tRNA) {
-	if ($fr =~ /^tRNA-(.*)-([ACGT]{3})$/) {
+	if ($fr =~ /^tRNA_(.*)_([ACGT]{3})$/) {
 	    my $aa_name = $1;
 	    my $anti_codon = $2;
 	    if (! exists $aa_abbrev{$aa_name}) {
@@ -689,7 +703,7 @@ sub build_me_model
 
     # sets sigma factor 70 as default sigma factor
     my $rnap='RNAP_70';
-    my $sigm=$factors{TranscriptionSigmaFactor}{RpoD_mono};
+    my $sigm='RpoD_mono';
 
     my (%reactions, %compounds);
 
@@ -699,7 +713,6 @@ sub build_me_model
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
 	my $cds = &get_dna($feature, $contigset);
-#	print STDERR "Processing $gene [$fr] of type $type\n";
 
 	# CHECK THIS
 	$type = "tRNA" if $type =~ /rna/ && $fr =~ /^tRNA-.*-[ACGT]{3}$/;
@@ -786,7 +799,7 @@ sub build_me_model
 	    my $rxn = "tscr_elo_$gene\_ini_rho_dep\tFormation complex for elongation of $gene (RHO DEPENDENT TERMINATION)\t1 transcr_ini_$gene\_cplx ";
 	    foreach my $factor (sort keys %{$factors{RhoDependentTranscriptionTerminationCDS}})
 	    {
-		$rxn .= "+ 1 $factors{RhoDependentTranscriptionTerminationCDS}{$factor} ";
+		$rxn .= "+ 1 $factor ";
 	    }		
 	    $rxn .= "--> 1 transcr_elo_$gene\_cplx\treversible\tTranscription\n";
 	    push @{$reactions{$gene}}, $rxn;
@@ -795,11 +808,11 @@ sub build_me_model
 	    my $rxn2 = "tscr_elo_term_$gene\_rho_dep\tTranscription elongation and RHO DEPENDENT termination of $gene\t1 transcr_elo_$gene\_cplx + 3 $cpd_map{h2o} + ".($cdsA-$firstA+3)." $cpd_map{atp} + ".($cdsC-$firstC)." $cpd_map{ctp} + ".($cdsG-$firstG)." $cpd_map{gtp} + ".($cdsU-$firstU)." $cpd_map{utp} --> 1 $gene\_DNA_neu + 1 $gene\_mRNA + ".(($cdsA-$firstA)+($cdsC-$firstC)+($cdsG-$firstG)+($cdsU-$firstU))." $cpd_map{ppi} ";
 	    foreach my $factor (sort keys %{$factors{RhoDependentTranscriptionTerminationCDS}})
 	    {
-		$rxn2 .= "+ 1 $factors{RhoDependentTranscriptionTerminationCDS}{$factor} ";
+		$rxn2 .= "+ 1 $factor ";
 	    }		
 	    foreach my $factor (sort keys %{$factors{RNAP}})
 	    {
-		$rxn2 .= "+ 1 $factors{RNAP}{$factor} ";
+		$rxn2 .= "+ 1 $factor ";
 	    }
 	    $rxn2 .= "+ 3 $cpd_map{adp} + 3 $cpd_map{pi} + 3 $cpd_map{h}\tirreversible\tTranscription\t".(($cdsA+$cdsC+$cdsG+$cdsU)/45)." (45nt/s) to ".(($cdsA+$cdsC+$cdsG+$cdsU)/40)." (40nt/s) 1/s\n";
 	    push @{$reactions{$gene}}, $rxn2;
@@ -849,7 +862,7 @@ sub build_me_model
 	    my $rxn3 = "tscr_elo_$gene\_ini\_stab\tFormation complex for elongation of $gene (stable RNA)\t1 transcr_ini_$gene\_cplx ";
 	    foreach my $factor (sort keys %{$factors{TranscriptionTerminationRNA}})
 	    {
-		$rxn3 .= "+ 1 $factors{TranscriptionTerminationRNA}{$factor} ";
+		$rxn3 .= "+ 1 $factor ";
 	    }						
 	    $rxn3 .= "--> 1 transcr_elo_$gene\_cplx\treversible\tTranscription\n";
 	    push @{$reactions{$gene}}, $rxn3;
@@ -858,11 +871,11 @@ sub build_me_model
 
 	    foreach my $factor (sort keys %{$factors{TranscriptionTerminationRNA}})
 	    {					
-		$rxn4 .= "+ 1 $factors{TranscriptionTerminationRNA}{$factor} ";
+		$rxn4 .= "+ 1 $factor ";
 	    }
 	    foreach my $factor (sort keys %{$factors{RNAP}})
 	    {
-		$rxn4 .= "+ 1 $factors{RNAP}{$factor} ";
+		$rxn4 .= "+ 1 $factor ";
 	    }
 
 	    $rxn4 .= "+ 3 $cpd_map{adp} + 3 $cpd_map{pi} + 3 $cpd_map{h}\tirreversible\tTranscription\t".((${cdsA}+${cdsC}+${cdsG}+${cdsU})/90)." (90nt/s) to ".((${cdsA}+${cdsC}+${cdsG}+${cdsU})/80)." (80nt/s) 1/s\n";
@@ -985,12 +998,12 @@ sub build_me_model
 	    ####################
 	    my $rxn5 = "tl_ini_$gene\_$a\_rib\tTranslation initiation $gene $a ribosome(s) bound\t1 $gene\_mRNA_1 + $a fmet_tRNA_met ";
 	    foreach my $factor (sort keys %{$factors{TranslationIni}}) {
-		$rxn5 .= "+ $a $factors{TranslationIni}{$factor} ";
+		$rxn5 .= "+ $a $factor ";
 	    }				
 	    $rxn5 .= "+ $a $cpd_map{h2o} --> 1 rib_ini_$gene\_$a ";
 	    foreach my $factor (sort keys %{$factors{TranslationIniOut}})
 	    {
-		$rxn5 .= "+ $a $factors{TranslationIniOut}{$factor} ";
+		$rxn5 .= "+ $a $factor ";
 	    }		
 	    $rxn5 .= "+ $a $cpd_map{pi} + $a $cpd_map{h}\tirreversible\tTranslation\n";
 	    push @{$reactions{$gene}}, $rxn5;
@@ -1107,9 +1120,9 @@ sub build_me_model
 		{
 		    if ($found == 0)
 		    {
-			if ($trna =~ /^tRNA-(\w{3})-/) {
+			if ($trna =~ /^tRNA_(\w{3})_/) {
 			    my @codons = keys %{$genetic_code{$assigned_code}{$1}};
-			    $trna2 = $factor.'.'.$trna;
+			    $trna2 = $factor.'_'.$trna;
 			    $found = 1;
 			}
 			else {
@@ -1205,7 +1218,7 @@ sub build_me_model
 	    #################
 	    foreach my $factor (sort keys %{$factors{TranslationEF_G_GTP}})
 	    {
-		$rxn6 .= "+ ".(${sum_aa}*$a)." $factors{TranslationEF_G_GTP}{$factor} ";
+		$rxn6 .= "+ ".(${sum_aa}*$a)." $factor ";
 	    }
 	    $rxn6 .= "--> 1 rib_70_elo1_$gene\_$a\_cplx\tirreversible\tTranslation\n";
 	    push @{$reactions{$gene}}, $rxn6;
@@ -1251,11 +1264,11 @@ sub build_me_model
 	    my $rxn7 = "tl_elo_$gene\_$a\_rib2\tTranslation elongation 2 $gene $a ribosome(s)\t1 rib_70_elo1_$gene\_$a\_cplx + ".(((${sum_aa}-1)*$a))." $cpd_map{h2o} --> 1 rib_70_elo2_$gene\_$a\_cplx + $a fmet_tRNA + ".(${Mg2}*$a)." $cpd_map{mg2} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{pi} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{h} ";
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 	    {
-		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." $factors{TranslationEF_TU_GDP}{$factor} ";
+		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." $factor ";
 	    }
 	    foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 	    {
-		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." $factors{TranslationEF_G_GDP}{$factor} ";
+		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." $factor ";
 	    }
 	    
 	    foreach my $trna (keys %list_tRNA)
@@ -1288,16 +1301,17 @@ sub build_me_model
 
 	    foreach my $factor (sort keys %{$factors{LastCodonsFactors}})
 	    {
+		# KEEP TRACK OF LAST CODON USED
 		if (exists $factors{LastCodonsFactors}{$factor}{$last_codon_})
 		{
 		    if ($CountRF == 0)
 		    {
-			$rf=$factors{LastCodonsFactors}{$factor}{$last_codon_};
+			$rf=$factor;
 			++$CountRF;
 		    }
 		    else
 		    {
-			$rfx=$factors{LastCodonsFactors}{$factor}{$last_codon_};
+			$rfx=$factor;
 		    }
 		}
 	    }
@@ -1312,7 +1326,7 @@ sub build_me_model
 	    
 	    foreach my $factor (sort keys %{$factors{TranslationTerm}})
 	    {
-		$rxn8 .= "+ $a $factors{TranslationTerm}{$factor} ";
+		$rxn8 .= "+ $a $factor ";
 	    }				
 	    #THINK 
 	    $rxn8 .= "+ $a $rf --> 1 tl_term_$gene\_$a\_rib_cplx\treversible\tTranslation\n";
@@ -1334,22 +1348,22 @@ sub build_me_model
 	    #+ $a rib_70 
 	    foreach my $factor (sort keys %{$factors{TranslationElo2}})
 	    {
-		$rxn9 .= "+ $a $factors{TranslationElo2}{$factor} ";
+		$rxn9 .= "+ $a $factor ";
 	    }				
 	    #+ $a EF-Tu.GDP
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 	    {
-		$rxn9 .= "+ $a $factors{TranslationEF_TU_GDP}{$factor} ";
+		$rxn9 .= "+ $a $factor ";
 	    }				
 	    #+ $a EF-G.GDP
 	    foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 	    {
-		$rxn9 .= "+ $a $factors{TranslationEF_G_GDP}{$factor} ";
+		$rxn9 .= "+ $a $factor ";
 	    }				
 	    #+ $a RF3_mono.GDP + $a Rrf_mono  
 	    foreach my $factor (sort keys %{$factors{TranslationTerm}})
 	    {
-		$rxn9 .= "+ $a $factors{TranslationTerm}{$factor} ";
+		$rxn9 .= "+ $a $factor ";
 	    }
 	    $rxn9 .= "+ $a ";
 	    if (defined ${second_last_codon})	
@@ -1365,7 +1379,7 @@ sub build_me_model
 		#+ $a RF3_mono.GDP + $a Rrf_mono 
 		foreach my $factor (sort keys %{$factors{TranslationTerm}})
 		{
-		    $rxn11 .= "+ $a $factors{TranslationTerm}{$factor} ";
+		    $rxn11 .= "+ $a $factor ";
 		}					
 		$rxn11 .= "--> 1 tl_term_$gene\_$a\_rib_cplx2\treversible\tTranslation\n";
 		push @{$reactions{$gene}}, $rxn11;
@@ -1375,22 +1389,22 @@ sub build_me_model
 		#+ $a rib_70 
 		foreach my $factor (sort keys %{$factors{TranslationElo2}})
 		{
-		    $rxn22 .= "+ $a $factors{TranslationElo2}{$factor} ";
+		    $rxn22 .= "+ $a $factor ";
 		}				
 		#+ $a EF-Tu.GDP
 		foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 		{
-		    $rxn22 .= "+ $a $factors{TranslationEF_TU_GDP}{$factor} ";
+		    $rxn22 .= "+ $a $factor ";
 		}				
 		#+ $a EF-G.GDP
 		foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 		{
-		    $rxn22 .= "+ $a $factors{TranslationEF_G_GDP}{$factor} ";
+		    $rxn22 .= "+ $a $factor ";
 		}				
 		#+ $a RF3_mono.GDP + $a Rrf_mono  
 		foreach my $factor (sort keys %{$factors{TranslationTerm}})
 		{
-		    $rxn22 .= "+ $a $factors{TranslationTerm}{$factor} ";
+		    $rxn22 .= "+ $a $factor ";
 		}					
 		$rxn22 .= "+ $a ";
 		my $trna=${second_last_codon};
@@ -1492,7 +1506,7 @@ sub build_me_model
 
 	foreach my $factor (sort keys %{$factors{mRNAdegradation}})
 	{				
-	    $rxn33 .= "+ 1 ".($factors{mRNAdegradation}{$factor})." ";
+	    $rxn33 .= "+ 1 $factor ";
 	}		
 	$rxn33 .= "+ $cds_length $cpd_map{atp} + $cds_length $cpd_map{h2o} --> 1 $gene\_mRNA_2_degr + $cds_length $cpd_map{adp} + $cds_length $cpd_map{pi} + $cds_length $cpd_map{h} \treversible\tmRNA degradation\n"; #accounts for unwinding of ds mRNA; based on Gralla and DiLisi, 1974, Nature, 248,330-332 --> found that 50% of randomly generated mRNA has to be ds mRNA
 	push @{$reactions{$gene}}, $rxn33;
@@ -1509,12 +1523,12 @@ sub build_me_model
 	{		
 	    if ($cnt == 0)
 	    {
-		$rxn44 .= "1 ".($factors{mRNAdegradation}{$factor})." ";
+		$rxn44 .= "1 $factor ";
 		$cnt +=1;
 	    }
 	    else
 	    {
-		$rxn44 .= "+ 1 ".($factors{mRNAdegradation}{$factor})." ";
+		$rxn44 .= "+ 1 $factor ";
 	    }
 	}
 	
@@ -1550,9 +1564,9 @@ sub build_me_model
 	#+ 1 Def_mono 
 	###	
 	my $rxn55 = "$gene\_maturation1\tPolypeptide $gene peptide deformylase complex\t1 $gene\_aa ";
-	foreach my $factor (keys %{$factors{ProtMaturationDef}})
+	foreach my $factor (sort keys %{$factors{ProtMaturationDef}})
 	{				
-	    $rxn55 .= "+ 1 $factors{ProtMaturationDef}{$factor} ";
+	    $rxn55 .= "+ 1 $factor ";
 	}
 	$rxn55 .= "--> 1 $gene\_def_cplx\treversible\tProtein Maturation\tno matured protein available-missing entry\n";
 	push @{$reactions{$gene}}, $rxn55;
@@ -1563,9 +1577,9 @@ sub build_me_model
 	#+ 1 Def_mono 
 	###		
 	my $rxn66 = "$gene\_maturation2\t$gene formation\t1 $gene\_def_cplx + 1 $cpd_map{h2o} --> 1 $gene\_m ";
-	foreach my $factor (keys %{$factors{ProtMaturationDef}})
+	foreach my $factor (sort keys %{$factors{ProtMaturationDef}})
 	{				
-	    $rxn66 .= "+ 1 $factors{ProtMaturationDef}{$factor} ";
+	    $rxn66 .= "+ 1 $factor ";
 	}
 	$rxn66 .= "+ 1 $cpd_map{for}\tirreversible\tProtein Maturation\tno matured protein available-missing entry\n";
 	push @{$reactions{$gene}}, $rxn66;
@@ -1581,7 +1595,7 @@ sub build_me_model
 	my ${mat_Se} = $aa_count{Se}; 
 	my ${mat_charge} = $aa_count{charge}; 
 	
-	foreach my $factor (keys %{$factors{ProtMaturationDef}})
+	foreach my $factor (sort keys %{$factors{ProtMaturationDef}})
 	{				
 	    ${mat_C} += $formulae{$factor}{C}; 
 	    ${mat_H} += $formulae{$factor}{H}; 
@@ -1615,22 +1629,22 @@ sub build_me_model
     }
 
 # MDJ: Add recycling reactions
-    foreach my $factor (keys %{$factors{TranslationEF_TU_GDP}}) {
+    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}}) {
 	# leave EF-Tu-Ts because it is cycled intermediate
-	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_1\tEF-Tu.GDP dissociation with EF-Ts as intermediary\t1 $factors{TranslationEF_TU_GDP}{$factor} + 1 $factors{TranslationEF_TS}{'EF-Ts'} --> 1 EF-Tu-Ts + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
+	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_1\tEF-Tu.GDP dissociation with EF-Ts as intermediary\t1 $factor + 1 EF_Ts --> 1 EF_Tu_Ts + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
     }
-    foreach my $factor (keys %{$factors{TranslationEF_TU_GTP}}) {
-	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_2\tEF-Tu-Ts dissociation with GTP charging\t1 EF-Tu-Ts + 1 $cpd_map{gtp} --> 1 $factors{TranslationEF_TU_GTP}{$factor} + 1 $factors{TranslationEF_TS}{'EF-Ts'}\tirreversible\tRecycling\n";
+    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GTP}}) {
+	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_2\tEF-Tu-Ts dissociation with GTP charging\t1 EF_Tu_Ts + 1 $cpd_map{gtp} --> 1 $factor + 1 EF_Ts\tirreversible\tRecycling\n";
     }
 
     foreach my $trna (keys %list_tRNA) {
-	if ($trna =~ /^tRNA\-(\w{3}(\(p\))?)\-\w{3}/) {
+	if ($trna =~ /^tRNA_(\w{3}(\(p\))?)_\w{3}/) {
 	    my $aa = $1;
 	    my @codons = keys %{$genetic_code{$assigned_code}{$aa}};
 	    next if @codons == 0;
-	    my $trna2 = $genetic_code{$assigned_code}{$1}{$codons[0]};
+#	    my $trna2 = $genetic_code{$assigned_code}{$1}{$codons[0]};
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GTP}}) {
-		push @{$reactions{"Recycling"}}, "EF_Tu_cycle_3_$trna\tCharging EF-Tu with $trna and GTP and AA\t1 $factors{TranslationEF_TU_GTP}{$factor} + 1 $trna + 1 $cpd_map{$aa} --> 1 EF-Tu.GTP.$trna\tirreversible\tRecycling\n";
+		push @{$reactions{"Recycling"}}, "EF_Tu_cycle_3_$trna\tCharging EF-Tu with $trna and GTP and AA\t1 $factor + 1 $trna + 1 $cpd_map{$aa} --> 1 EF_Tu_GTP_$trna\tirreversible\tRecycling\n";
 	    }
 	}
     }
@@ -1639,16 +1653,16 @@ sub build_me_model
     {
 	foreach my $factor2 (sort keys %{$factors{TranslationEF_G_GTP}})
 	{
-	    push @{$reactions{"Recycling"}}, "EF_G_cycle\tEF-G.GDP dissociation and reassociation with GTP\t1 $factors{TranslationEF_G_GDP}{$factor} + 1 $cpd_map{gtp} --> 1 $factors{TranslationEF_G_GTP}{$factor2} + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
+	    push @{$reactions{"Recycling"}}, "EF_G_cycle\tEF-G.GDP dissociation and reassociation with GTP\t1 $factor + 1 $cpd_map{gtp} --> 1 $factor2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
 	}				
     }				
 
 # not sure how this happens exactly, but probably OK - NEED TO MASS BALANCE AND ADD COFACTORS (E.G., H2O?)
 # leave IF2 all by itself because it only appears in recycling reactions
-    push @{$reactions{"Recycling"}}, "IF2.GDP_cycle\tIF2.GDP dissociation\t1 $factors{TranslationIniOut}{'IF2.GDP'} --> 1 IF2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
-    push @{$reactions{"Recycling"}}, "Rib_cycle\tInactive 70S ribosome dissociation plus initiation factor binding\t1 $factors{TranslationElo2}{rib_70} + 1 $factors{TranslationIniFactors}{IF1} + 1 IF2 + 1 $factors{TranslationIniFactors}{IF3} + $cpd_map{gtp} --> 1 $factors{TranslationIni}{rib_30_ini} + 1 $factors{TranslationIni}{rib_50}\tirreversible\tRecycling\n";
-    foreach my $factor (keys %{$factors{RNAP}}) {
-	push @{$reactions{"Recycling"}}, "RNAP_sigma_cycle_$factor\tRNAP ($factor) association with sigma factor\t1 $factors{RNAP}{$factor} + 1 $sigm --> 1 $rnap\tirreversible\tRecycling\n";
+    push @{$reactions{"Recycling"}}, "IF2.GDP_cycle\tIF2.GDP dissociation\t1 IF2_GDP --> 1 IF2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
+    push @{$reactions{"Recycling"}}, "Rib_cycle\tInactive 70S ribosome dissociation plus initiation factor binding\t1 rib_70 + 1 IF1 + 1 IF2 + 1 IF3 + $cpd_map{gtp} --> 1 rib_30_ini + 1 rib_50\tirreversible\tRecycling\n";
+    foreach my $factor (sort keys %{$factors{RNAP}}) {
+	push @{$reactions{"Recycling"}}, "RNAP_sigma_cycle_$factor\tRNAP ($factor) association with sigma factor\t1 $factor + 1 $sigm --> 1 $rnap\tirreversible\tRecycling\n";
     }
     push @{$reactions{"Recycling"}}, "fmet_tRNA_cycle\tCharging of fmet-tRNA with methionine and formyl group\t1 fmet_tRNA + 1 $cpd_map{for} + 1 $cpd_map{Met} --> 1 fmet_tRNA_met\tirreversible\tRecycling\n";
 
