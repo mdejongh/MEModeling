@@ -27,13 +27,20 @@ suggestions:
 # Configure the display and description of parameters
 #
 parameters :
-    genome_id :
+    model_ref :
         ui-name : |
-            Genome Id
+            FBA Model
         short-hint : |
-            The Genome for which to build the ME Model
+            The FBA Model for which to build the ME Model
         long-hint  : |
-            The Genome for which to build the ME Model
+            The FBA Model for which to build the ME Model
+    output_id :
+        ui-name : |
+            ME Model ID
+        short-hint : |
+            The ME Model
+        long-hint  : |
+            The ME Model
 
 description : |
 	<p>This method generates an FBA model that includes reactions for transcription, translation, and metabolism.</p>

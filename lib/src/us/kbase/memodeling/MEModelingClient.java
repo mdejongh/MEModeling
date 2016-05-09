@@ -143,16 +143,14 @@ public class MEModelingClient {
      * <pre>
      * Build a Metabolic/Expression model
      * </pre>
-     * @param   workspace   instance of original type "workspace_name" (A string representing a workspace name.)
-     * @param   genomeId   instance of original type "ws_genome_id" (The workspace ID for a ContigSet data object. @id ws KBaseGenomes.Genome)
+     * @param   arg1   instance of type {@link us.kbase.memodeling.BuildMEModelParams BuildMEModelParams}
      * @return   instance of type {@link us.kbase.memodeling.MEModelingResult MEModelingResult}
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public MEModelingResult buildMeModel(String workspace, String genomeId, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public MEModelingResult buildMeModel(BuildMEModelParams arg1, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
-        args.add(workspace);
-        args.add(genomeId);
+        args.add(arg1);
         TypeReference<List<MEModelingResult>> retType = new TypeReference<List<MEModelingResult>>() {};
         List<MEModelingResult> res = caller.jsonrpcCall("MEModeling.build_me_model", args, retType, true, true, jsonRpcContext);
         return res.get(0);

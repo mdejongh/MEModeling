@@ -52,14 +52,24 @@ eval {
 	$decoded2->{"contigset_ref"} = get_ws_name()."/".$obj_name;
         $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseGenomes.Genome', 'name' => $obj_name2, 'data' => $decoded2}]});
 
-	print STDERR "Getting ready ...\n";
-        $result = $impl->build_me_model(get_ws_name, $obj_name2);
+	print STDERR "Loading model ...\n";
+
+	my $obj_name3 = "ecoli_model";
+	open (EM, "ecoli_model.json");
+        my $obj3 = <EM>;
+	chomp $obj3;
+	close EM;
+	my $decoded3 = JSON::XS::decode_json($obj3);
+	$decoded3->{"genome_ref"} = get_ws_name()."/".$obj_name2;
+        $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseFBA.FBAModel', 'name' => $obj_name3, 'data' => $decoded3}]});
+	print STDERR "Calling build_me_model ...\n";
+        $result = $impl->build_me_model({"model_ref"=>get_ws_name()."/".$obj_name3, "workspace"=>get_ws_name(), "output_id"=>"em_model"});
 	print STDERR "Done\n";
     };
     print STDERR "$@\n" if defined $@;
 
     # apply petri-net test
-    my %test = petri('kb|g.0.peg.3800',$result->{reactions},$result->{compounds});
+    my %test = petri('kb|g.0.peg.3800',$result->{reactions});
     print STDERR &Dumper(\%test);
 
     done_testing(0);
@@ -132,7 +142,7 @@ Tyr
 Val
  /;
 
-    my ($gene,$reactions,$componds) = @_;
+    my ($gene,$reactions) = @_;
     $gene =~ s/\W/_/g;
 
     my %rxns2substrates;

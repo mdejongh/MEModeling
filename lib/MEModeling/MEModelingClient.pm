@@ -111,7 +111,7 @@ sub new
 
 =head2 build_me_model
 
-  $return = $obj->build_me_model($workspace, $genome_id)
+  $return = $obj->build_me_model($BuildMEModelParams)
 
 =over 4
 
@@ -120,14 +120,16 @@ sub new
 =begin html
 
 <pre>
-$workspace is a MEModeling.workspace_name
-$genome_id is a MEModeling.ws_genome_id
+$BuildMEModelParams is a MEModeling.BuildMEModelParams
 $return is a MEModeling.MEModelingResult
-workspace_name is a string
-ws_genome_id is a string
+BuildMEModelParams is a reference to a hash where the following keys are defined:
+	model_ref has a value which is a string
+	workspace has a value which is a string
+	output_id has a value which is a string
 MEModelingResult is a reference to a hash where the following keys are defined:
 	report_name has a value which is a string
 	report_ref has a value which is a string
+	me_model_ref has a value which is a string
 
 </pre>
 
@@ -135,14 +137,16 @@ MEModelingResult is a reference to a hash where the following keys are defined:
 
 =begin text
 
-$workspace is a MEModeling.workspace_name
-$genome_id is a MEModeling.ws_genome_id
+$BuildMEModelParams is a MEModeling.BuildMEModelParams
 $return is a MEModeling.MEModelingResult
-workspace_name is a string
-ws_genome_id is a string
+BuildMEModelParams is a reference to a hash where the following keys are defined:
+	model_ref has a value which is a string
+	workspace has a value which is a string
+	output_id has a value which is a string
 MEModelingResult is a reference to a hash where the following keys are defined:
 	report_name has a value which is a string
 	report_ref has a value which is a string
+	me_model_ref has a value which is a string
 
 
 =end text
@@ -161,17 +165,16 @@ Build a Metabolic/Expression model
 
 # Authentication: required
 
-    if ((my $n = @args) != 2)
+    if ((my $n = @args) != 1)
     {
 	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
-							       "Invalid argument count for function build_me_model (received $n, expecting 2)");
+							       "Invalid argument count for function build_me_model (received $n, expecting 1)");
     }
     {
-	my($workspace, $genome_id) = @args;
+	my($BuildMEModelParams) = @args;
 
 	my @_bad_arguments;
-        (!ref($workspace)) or push(@_bad_arguments, "Invalid type for argument 1 \"workspace\" (value was \"$workspace\")");
-        (!ref($genome_id)) or push(@_bad_arguments, "Invalid type for argument 2 \"genome_id\" (value was \"$genome_id\")");
+        (ref($BuildMEModelParams) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"BuildMEModelParams\" (value was \"$BuildMEModelParams\")");
         if (@_bad_arguments) {
 	    my $msg = "Invalid arguments passed to build_me_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
 	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
@@ -260,16 +263,10 @@ sub _validate_version {
 
 
 
-=head2 ws_genome_id
+=head2 BuildMEModelParams
 
 =over 4
 
-
-
-=item Description
-
-The workspace ID for a ContigSet data object.
-@id ws KBaseGenomes.Genome
 
 
 =item Definition
@@ -277,45 +274,22 @@ The workspace ID for a ContigSet data object.
 =begin html
 
 <pre>
-a string
+a reference to a hash where the following keys are defined:
+model_ref has a value which is a string
+workspace has a value which is a string
+output_id has a value which is a string
+
 </pre>
 
 =end html
 
 =begin text
 
-a string
+a reference to a hash where the following keys are defined:
+model_ref has a value which is a string
+workspace has a value which is a string
+output_id has a value which is a string
 
-=end text
-
-=back
-
-
-
-=head2 workspace_name
-
-=over 4
-
-
-
-=item Description
-
-A string representing a workspace name.
-
-
-=item Definition
-
-=begin html
-
-<pre>
-a string
-</pre>
-
-=end html
-
-=begin text
-
-a string
 
 =end text
 
@@ -337,6 +311,7 @@ a string
 a reference to a hash where the following keys are defined:
 report_name has a value which is a string
 report_ref has a value which is a string
+me_model_ref has a value which is a string
 
 </pre>
 
@@ -347,6 +322,7 @@ report_ref has a value which is a string
 a reference to a hash where the following keys are defined:
 report_name has a value which is a string
 report_ref has a value which is a string
+me_model_ref has a value which is a string
 
 
 =end text

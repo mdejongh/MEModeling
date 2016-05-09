@@ -20,7 +20,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
     "report_name",
-    "report_ref"
+    "report_ref",
+    "me_model_ref"
 })
 public class MEModelingResult {
 
@@ -28,6 +29,8 @@ public class MEModelingResult {
     private String reportName;
     @JsonProperty("report_ref")
     private String reportRef;
+    @JsonProperty("me_model_ref")
+    private String meModelRef;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("report_name")
@@ -60,6 +63,21 @@ public class MEModelingResult {
         return this;
     }
 
+    @JsonProperty("me_model_ref")
+    public String getMeModelRef() {
+        return meModelRef;
+    }
+
+    @JsonProperty("me_model_ref")
+    public void setMeModelRef(String meModelRef) {
+        this.meModelRef = meModelRef;
+    }
+
+    public MEModelingResult withMeModelRef(String meModelRef) {
+        this.meModelRef = meModelRef;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -72,7 +90,7 @@ public class MEModelingResult {
 
     @Override
     public String toString() {
-        return ((((((("MEModelingResult"+" [reportName=")+ reportName)+", reportRef=")+ reportRef)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((("MEModelingResult"+" [reportName=")+ reportName)+", reportRef=")+ reportRef)+", meModelRef=")+ meModelRef)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

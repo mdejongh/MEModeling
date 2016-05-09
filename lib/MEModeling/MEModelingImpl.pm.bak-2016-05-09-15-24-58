@@ -239,7 +239,7 @@ sub new
 
 =head2 build_me_model
 
-  $return = $obj->build_me_model($BuildMEModelParams)
+  $return = $obj->build_me_model($workspace, $genome_id)
 
 =over 4
 
@@ -248,16 +248,14 @@ sub new
 =begin html
 
 <pre>
-$BuildMEModelParams is a MEModeling.BuildMEModelParams
+$workspace is a MEModeling.workspace_name
+$genome_id is a MEModeling.ws_genome_id
 $return is a MEModeling.MEModelingResult
-BuildMEModelParams is a reference to a hash where the following keys are defined:
-	model_ref has a value which is a string
-	workspace has a value which is a string
-	output_id has a value which is a string
+workspace_name is a string
+ws_genome_id is a string
 MEModelingResult is a reference to a hash where the following keys are defined:
 	report_name has a value which is a string
 	report_ref has a value which is a string
-	me_model_ref has a value which is a string
 
 </pre>
 
@@ -265,16 +263,14 @@ MEModelingResult is a reference to a hash where the following keys are defined:
 
 =begin text
 
-$BuildMEModelParams is a MEModeling.BuildMEModelParams
+$workspace is a MEModeling.workspace_name
+$genome_id is a MEModeling.ws_genome_id
 $return is a MEModeling.MEModelingResult
-BuildMEModelParams is a reference to a hash where the following keys are defined:
-	model_ref has a value which is a string
-	workspace has a value which is a string
-	output_id has a value which is a string
+workspace_name is a string
+ws_genome_id is a string
 MEModelingResult is a reference to a hash where the following keys are defined:
 	report_name has a value which is a string
 	report_ref has a value which is a string
-	me_model_ref has a value which is a string
 
 
 =end text
@@ -292,10 +288,11 @@ Build a Metabolic/Expression model
 sub build_me_model
 {
     my $self = shift;
-    my($BuildMEModelParams) = @_;
+    my($workspace, $genome_id) = @_;
 
     my @_bad_arguments;
-    (ref($BuildMEModelParams) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"BuildMEModelParams\" (value was \"$BuildMEModelParams\")");
+    (!ref($workspace)) or push(@_bad_arguments, "Invalid type for argument \"workspace\" (value was \"$workspace\")");
+    (!ref($genome_id)) or push(@_bad_arguments, "Invalid type for argument \"genome_id\" (value was \"$genome_id\")");
     if (@_bad_arguments) {
 	my $msg = "Invalid arguments passed to build_me_model:\n" . join("", map { "\t$_\n" } @_bad_arguments);
 	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
@@ -310,23 +307,11 @@ sub build_me_model
     my $wsClient=Bio::KBase::workspace::Client->new($self->{'workspace-url'},token=>$token);
     my $provenance = [{}];
     $provenance = $ctx->provenance if defined $ctx->provenance;
-
-    my $model_ref = $BuildMEModelParams->{model_ref};
-    my $workspace = $BuildMEModelParams->{workspace};
-    my $output_id = $BuildMEModelParams->{output_id};
     
-    my $model;
-    eval {
-	$model = $wsClient->get_objects([{ref=>$model_ref}])->[0]{data};
-	push @{$provenance->[0]->{'input_ws_objects'}}, $model_ref;
-    };
-    if ($@) {
-	die "Error loading model:\n".$@;
-    }
-
     my $genome;
     eval {
-	$genome = $wsClient->get_objects([{ref=>$model->{genome_ref}}])->[0]{data};
+	$genome = $wsClient->get_objects([{ref=>$workspace."/".$genome_id}])->[0]{data};
+	push @{$provenance->[0]->{'input_ws_objects'}}, $workspace."/".$genome_id;
     };
     if ($@) {
 	die "Error loading genome:\n".$@;
@@ -478,10 +463,7 @@ sub build_me_model
     $aa_abbrev{"Val"} = "V";
 
     # read factors.txt and calculate formula and charge
-    my (%factors, %formulae, %tt_genes);
-
-    # TEMPORARY!
-    $tt_genes{'kb_g_0_peg_3800'} = 'kb_g_0_peg_3800';
+    my (%factors, %formulae);
 
     open (FACTORS, "../data/factors.txt") or die("Couldn't open factors.txt: $!");
     while (<FACTORS>) {
@@ -491,7 +473,6 @@ sub build_me_model
 	    print STDERR "No gene defined for TT factor '$fr' [$fname]\n";
 	    next;
 	}
-	$tt_genes{$fr2gene{$fr}} = $fname;
 	my ($extra, %extra);
 	if ($fname =~ /_GDP$/) {
 	    $extra = "_GDP";
@@ -729,7 +710,6 @@ sub build_me_model
     foreach my $feature (@{$genome->{features}}) {
 	my $gene = $feature->{id};
 	$gene =~ s/\W/_/g;
-	next unless exists $tt_genes{$gene}; # only process TT genes for now
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
 	my $cds = &get_dna($feature, $contigset);
@@ -1642,16 +1622,10 @@ sub build_me_model
 	my $mw_protein=$mw{C}*$m_count{C}+$mw{H}*$m_count{H}+$mw{N}*$m_count{N}+$mw{O}*$m_count{O}+$mw{S}*$m_count{S};
 	push @{$compounds{$gene}}, "$gene\_m\tMatured polypeptide $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tMaturation\tMW: $mw_protein\n";
 
-	$mw_protein=$mw{C}*$m_count{C}+$mw{H}*$m_count{H}+$mw{N}*$m_count{N}+$mw{O}*$m_count{O}+$mw{S}*$m_count{S};
+	push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $gene\_mono\tirreversible\tProtein Folding\n";    
 
-	if (exists $tt_genes{$gene}) {
-	    push @{$reactions{$tt_genes{$gene}}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $tt_genes{$gene}\tirreversible\tProtein Folding\n";    
-	    push @{$compounds{$tt_genes{$gene}}}, "$tt_genes{$gene}\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
-	}
-	else {
-	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $gene\_mono\tirreversible\tProtein Folding\n";    
-	    push @{$compounds{$gene}}, "$gene\_mono\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
-	}
+	$mw_protein=$mw{C}*$m_count{C}+$mw{H}*$m_count{H}+$mw{N}*$m_count{N}+$mw{O}*$m_count{O}+$mw{S}*$m_count{S};
+	push @{$compounds{$gene}}, "$gene\_mono\tMonomer\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
     }
 
 # MDJ: Add recycling reactions
@@ -1692,39 +1666,8 @@ sub build_me_model
     }
     push @{$reactions{"Recycling"}}, "fmet_tRNA_cycle\tCharging of fmet-tRNA with methionine and formyl group\t1 fmet_tRNA + 1 $cpd_map{for} + 1 $cpd_map{Met} --> 1 fmet_tRNA_met\tirreversible\tRecycling\n";
 
-    # add compounds and reactions to model and modify biomass
-    foreach my $gene (keys %compounds) {
-	my ($id, $name, $formula, $charge, undef) = split "\t", $compounds{$gene};
-	push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
-    }
-
-    foreach my $gene (keys %reactions) {
-	my ($id, $name, $formula, $rev, undef) = split "\t", $reactions{$gene};
-	$rev = ($rev eq "irreversible") ? ">" : "=";
-	my ($substrates, $products) = split "-->", $formula;
-	my (@reagents);
-	while ($substrates =~ /(\d+) (\S+)/g) {
-	    push @reagents, {"coefficient"=> "-".$1,"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
-	}
-	while ($products =~ /(\d+) (\S+)/g) {
-	    push @reagents, {"coefficient"=> $1,"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
-	}
-	
-	push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"489/6/13/reactions/id/rxn00000","modelReactionProteins"=>[]};
-    }
-
-    my $me_metadata = $wsClient->save_objects({
-	'workspace' => $workspace,
-	'objects' => [{
-	    type => 'KBaseFBA.FBAModel',
-	    name => $output_id,
-	    data => $model,
-	    'provenance' => $provenance
-		      }]});
-
-    my $report = "ME Model saved to $workspace/$output_id\n";
-    my $reportObj = { "objects_created"=>[{'ref'=>"$workspace/$output_id", "description"=>"Metabolism-Expression Model"}],
-		      "text_message"=>$report };
+    my $report = "Genetic Code is $assigned_code\n";
+    my $reportObj = { "text_message"=>$report, "objects_created"=>[] };
     my $reportName = "build_me_model_report";
 
     my $time = time;
@@ -1739,8 +1682,7 @@ sub build_me_model
 	    'provenance' => $provenance
 		      }]});
 
-    # returning reactions temporarily for testing
-    $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4], 'reactions'=>\%reactions  };
+    $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4], 'reactions'=>\%reactions, 'compounds'=>\%compounds };
 
     #END build_me_model
     my @_bad_returns;
@@ -1794,10 +1736,16 @@ sub version {
 
 
 
-=head2 BuildMEModelParams
+=head2 ws_genome_id
 
 =over 4
 
+
+
+=item Description
+
+The workspace ID for a ContigSet data object.
+@id ws KBaseGenomes.Genome
 
 
 =item Definition
@@ -1805,22 +1753,45 @@ sub version {
 =begin html
 
 <pre>
-a reference to a hash where the following keys are defined:
-model_ref has a value which is a string
-workspace has a value which is a string
-output_id has a value which is a string
-
+a string
 </pre>
 
 =end html
 
 =begin text
 
-a reference to a hash where the following keys are defined:
-model_ref has a value which is a string
-workspace has a value which is a string
-output_id has a value which is a string
+a string
 
+=end text
+
+=back
+
+
+
+=head2 workspace_name
+
+=over 4
+
+
+
+=item Description
+
+A string representing a workspace name.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
 
 =end text
 
@@ -1842,7 +1813,6 @@ output_id has a value which is a string
 a reference to a hash where the following keys are defined:
 report_name has a value which is a string
 report_ref has a value which is a string
-me_model_ref has a value which is a string
 
 </pre>
 
@@ -1853,7 +1823,6 @@ me_model_ref has a value which is a string
 a reference to a hash where the following keys are defined:
 report_name has a value which is a string
 report_ref has a value which is a string
-me_model_ref has a value which is a string
 
 
 =end text
