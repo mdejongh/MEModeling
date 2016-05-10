@@ -483,7 +483,7 @@ sub build_me_model
     # TEMPORARY!
     $tt_genes{'kb_g_0_peg_3800'} = 'kb_g_0_peg_3800';
 
-    open (FACTORS, "data/factors.txt") or die("Couldn't open factors.txt: $!");
+    open (FACTORS, "data/factors.txt") or open (FACTORS, "../data/factors.txt") or die("Couldn't open factors.txt: $!");
     while (<FACTORS>) {
 	chomp;
 	my ($category, $fname, $fr, $formula, $charge) = split "\t";
@@ -1694,23 +1694,27 @@ sub build_me_model
 
     # add compounds and reactions to model and modify biomass
     foreach my $gene (keys %compounds) {
-	my ($id, $name, $formula, $charge, undef) = split "\t", $compounds{$gene};
-	push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+	foreach my $cpd (@{$compounds{$gene}}) {
+	    my ($id, $name, $formula, $charge, undef) = split "\t", $cpd;
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+	}
     }
 
     foreach my $gene (keys %reactions) {
-	my ($id, $name, $formula, $rev, undef) = split "\t", $reactions{$gene};
-	$rev = ($rev eq "irreversible") ? ">" : "=";
-	my ($substrates, $products) = split "-->", $formula;
-	my (@reagents);
-	while ($substrates =~ /(\d+) (\S+)/g) {
-	    push @reagents, {"coefficient"=> "-".$1,"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
+	foreach my $rxn (@{$reactions{$gene}}) {
+	    my ($id, $name, $formula, $rev, undef) = split "\t", $rxn;
+	    $rev = ($rev eq "irreversible") ? ">" : "=";
+	    my ($substrates, $products) = split "-->", $formula;
+	    my (@reagents);
+	    while ($substrates =~ /(\d+) (\S+)/g) {
+		push @reagents, {"coefficient"=> "-".$1,"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
+	    }
+	    while ($products =~ /(\d+) (\S+)/g) {
+		push @reagents, {"coefficient"=> $1,"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
+	    }
+	    
+	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"489/6/13/reactions/id/rxn00000","modelReactionProteins"=>[]};
 	}
-	while ($products =~ /(\d+) (\S+)/g) {
-	    push @reagents, {"coefficient"=> $1,"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
-	}
-	
-	push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"489/6/13/reactions/id/rxn00000","modelReactionProteins"=>[]};
     }
 
     my $me_metadata = $wsClient->save_objects({
