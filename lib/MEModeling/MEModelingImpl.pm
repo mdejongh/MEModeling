@@ -550,7 +550,7 @@ sub build_me_model
 	    map { $formula{$_} += $formula_tRNA{$trna}{$_} } keys %{$formula_tRNA{$trna}};
 	    map { $formula{$_} += $infos{$abbrev}{$_} } keys %{$infos{$abbrev}};
 	}
-	$formulae{"EF_Tu.GTP_$trna"} = \%formula;
+	$formulae{"EF_Tu_GTP_$trna"} = \%formula;
     }
     
     # now we can calculate the fmet_trna_met by averaging the trna_mets
@@ -1697,7 +1697,48 @@ sub build_me_model
     }
     push @{$reactions{"Recycling"}}, "fmet_tRNA_cycle\tCharging of fmet-tRNA with methionine and formyl group\t1 fmet_tRNA + 1 $cpd_map{for} + 1 $cpd_map{Met} --> 1 fmet_tRNA_met\tirreversible\tRecycling\n";
 
-    # add compounds and reactions to model and modify biomass
+    # add factors and compounds and reactions to model and modify biomass
+    foreach my $factor (keys %formulae) {
+	    my $id = $factor;
+	    $id =~ s/_//g; # remove underscores
+	    my $name = $factor;
+	    my $charge = $formulae{$factor}{charge};
+	    my $formula = "";
+	    map { $formula.=$_.$formulae{$factor}{$_} if $formulae{$factor}{$_} > 0 && $_ ne "charge" } sort keys %{$formulae{$factor}};
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+    }
+
+    # handle EF-Tu-Ts since it isn't in factors.txt
+    {
+	    my $id = "EF_Tu_Ts";
+	    $id =~ s/_//g; # remove underscores
+	    my $name = "EF_Tu_Ts";
+	    my $charge = 0; # FIX THIS
+	    my $formula = "C1"; #FIX THIS
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+    }
+
+    # handle IF2 since it isn't in factors.txt
+    {
+	    my $id = "IF2";
+	    $id =~ s/_//g; # remove underscores
+	    my $name = "IF2";
+	    my $charge = 0; # FIX THIS
+	    my $formula = "C1"; #FIX THIS
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+    }
+
+    # need tRNAs
+    foreach my $trna (keys %formula_tRNA) {
+	    my $id = $trna;
+	    $id =~ s/_//g; # remove underscores
+	    my $name = $trna;
+	    my $charge = $formula_tRNA{$trna}{charge};
+	    my $formula = "";
+	    map { $formula.=$_.$formula_tRNA{$trna}{$_} if $formula_tRNA{$trna}{$_} > 0 && $_ ne "charge" } sort keys %{$formula_tRNA{$trna}};
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+    }
+
     foreach my $gene (keys %compounds) {
 	next unless $gene eq "Recycling" || $gene eq "kb_g_0_peg_3800";
 	foreach my $cpd (@{$compounds{$gene}}) {
@@ -1712,6 +1753,7 @@ sub build_me_model
 	foreach my $rxn (@{$reactions{$gene}}) {
 	    my ($id, $name, $formula, $rev, undef) = split "\t", $rxn;
 	    $id =~ s/_//g; # remove underscores
+	    $id.="_c0";
 	    $rev = ($rev eq "irreversible") ? ">" : "=";
 	    my ($substrates, $products) = split "-->", $formula;
 	    my (@reagents);

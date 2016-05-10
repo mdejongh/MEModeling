@@ -21,6 +21,7 @@ $MEModeling::MEModelingServer::CallContext = $ctx;
 my $impl = new MEModeling::MEModelingImpl();
 
 sub get_ws_name {
+    return "dejongh:1462805518225";
     if (!defined($ws_name)) {
         my $suffix = int(time * 1000);
         $ws_name = 'test_MEModeling_' . $suffix;
@@ -33,37 +34,40 @@ eval {
     $@ = '';
     my $result;
     eval { 
-	print STDERR "Loading genome and contigs ...\n";
-	
-        my $obj_name = "kb|g.0.c.1";
-	open (CONTIG, "kb_g.0.contigset.json");
-        my $obj = <CONTIG>;
-	chomp $obj;
-	close CONTIG;
-	my $decoded = JSON::XS::decode_json($obj);
-        $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseGenomes.ContigSet', 'name' => $obj_name, 'data' => $decoded}]});
-
-	my $obj_name2 = "E_coli_K12_reannotated";
-	open (ECK12, "E_coli_K12_reannotated.json");
-        my $obj2 = <ECK12>;
-	chomp $obj2;
-	close ECK12;
-	my $decoded2 = JSON::XS::decode_json($obj2);
-	$decoded2->{"contigset_ref"} = get_ws_name()."/".$obj_name;
-        $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseGenomes.Genome', 'name' => $obj_name2, 'data' => $decoded2}]});
-
-	print STDERR "Loading model ...\n";
-
 	my $obj_name3 = "ecoli_model";
-	open (EM, "ecoli_model.json");
-        my $obj3 = <EM>;
-	chomp $obj3;
-	close EM;
-	my $decoded3 = JSON::XS::decode_json($obj3);
-	$decoded3->{"genome_ref"} = get_ws_name()."/".$obj_name2;
-        $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseFBA.FBAModel', 'name' => $obj_name3, 'data' => $decoded3}]});
+	
+	if (get_ws_name() !~ /^dejongh/) {
+	    print STDERR "Loading genome and contigs ...\n";
+	    
+	    my $obj_name = "kb|g.0.c.1";
+	    open (CONTIG, "kb_g.0.contigset.json");
+	    my $obj = <CONTIG>;
+	    chomp $obj;
+	    close CONTIG;
+	    my $decoded = JSON::XS::decode_json($obj);
+	    $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseGenomes.ContigSet', 'name' => $obj_name, 'data' => $decoded}]});
+
+	    my $obj_name2 = "E_coli_K12_reannotated";
+	    open (ECK12, "E_coli_K12_reannotated.json");
+	    my $obj2 = <ECK12>;
+	    chomp $obj2;
+	    close ECK12;
+	    my $decoded2 = JSON::XS::decode_json($obj2);
+	    $decoded2->{"contigset_ref"} = get_ws_name()."/".$obj_name;
+	    $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseGenomes.Genome', 'name' => $obj_name2, 'data' => $decoded2}]});
+
+	    print STDERR "Loading model ...\n";
+
+	    open (EM, "ecoli_model.json");
+	    my $obj3 = <EM>;
+	    chomp $obj3;
+	    close EM;
+	    my $decoded3 = JSON::XS::decode_json($obj3);
+	    $decoded3->{"genome_ref"} = get_ws_name()."/".$obj_name2;
+	    $ws_client->save_objects({'workspace' => get_ws_name(), 'objects' => [{'type' => 'KBaseFBA.FBAModel', 'name' => $obj_name3, 'data' => $decoded3}]});
+	}
 	print STDERR "Calling build_me_model ...\n";
-        $result = $impl->build_me_model({"model_ref"=>get_ws_name()."/".$obj_name3, "workspace"=>get_ws_name(), "output_id"=>"em_model"});
+        $result = $impl->build_me_model({"model_ref"=>get_ws_name()."/".$obj_name3, "workspace"=>get_ws_name(), "output_id"=>"ecoli_me"});
 	print STDERR "Done\n";
     };
     print STDERR "$@\n" if defined $@;
