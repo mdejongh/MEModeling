@@ -761,7 +761,7 @@ sub build_me_model
 	push @{$compounds{$gene}}, "$gene\_DNA_act\tDNA transcription unit $gene (activated form)\tC${cdscompC}H${cdscompH}N${cdscompN}O${cdscompO}P${cdscompP}\t${cdscharge}\tTranscription\t, ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
 	push @{$compounds{$gene}}, "$gene\_DNA_neu\tDNA transcription unit $gene (inactive form)\tC${cdscompC}H${cdscompH}N${cdscompN}O${cdscompO}P${cdscompP}\t${cdscharge}\tTranscription\t, ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
 	push @{$reactions{$gene}}, "$gene\_DNA_act_bind\t$gene\_DNA binding of activator\t1 $gene\_DNA_neu --> 1 $gene\_DNA_act\tirreversible\tTranscription Regulation\n";
-	push @{$reactions{$gene}}, "sink_$gene\_DNA_neu\tsink $gene\_DNA_neu\t1 $gene\_DNA_neu -->\treversible\tSinks\n";
+#	push @{$reactions{$gene}}, "sink_$gene\_DNA_neu\tsink $gene\_DNA_neu\t1 $gene\_DNA_neu -->\treversible\tSinks\n";
 
 	# initiation
 	# complexes include frna and RNAP
@@ -1699,6 +1699,7 @@ sub build_me_model
 
     # add compounds and reactions to model and modify biomass
     foreach my $gene (keys %compounds) {
+	next unless $gene eq "Recycling" || $gene eq "kb_g_0_peg_3800";
 	foreach my $cpd (@{$compounds{$gene}}) {
 	    my ($id, $name, $formula, $charge, undef) = split "\t", $cpd;
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
@@ -1724,6 +1725,8 @@ sub build_me_model
 	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"489/6/13/reactions/id/rxn00000","modelReactionProteins"=>[]};
 	}
     }
+
+    push @{$model->{biomasses}->[0]->{biomasscompounds}}, {"coefficient":-1,"gapfill_data":{},"modelcompound_ref":"~/modelcompounds/id/kb_g_0_peg_3800_c0"};
 
     my $me_metadata = $wsClient->save_objects({
 	'workspace' => $workspace,
