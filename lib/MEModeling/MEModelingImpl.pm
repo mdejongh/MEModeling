@@ -1726,7 +1726,7 @@ sub build_me_model
 	}
     }
 
-    push @{$model->{biomasses}->[0]->{biomasscompounds}}, {"coefficient":-1,"gapfill_data":{},"modelcompound_ref":"~/modelcompounds/id/kb_g_0_peg_3800_c0"};
+    push @{$model->{biomasses}->[0]->{biomasscompounds}}, {"coefficient"=>-1,"gapfill_data"=>{},"modelcompound_ref"=>"~/modelcompounds/id/kb_g_0_peg_3800_c0"};
 
     my $me_metadata = $wsClient->save_objects({
 	'workspace' => $workspace,
