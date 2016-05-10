@@ -1690,7 +1690,7 @@ sub build_me_model
 
 # not sure how this happens exactly, but probably OK - NEED TO MASS BALANCE AND ADD COFACTORS (E.G., H2O?)
 # leave IF2 all by itself because it only appears in recycling reactions
-    push @{$reactions{"Recycling"}}, "IF2.GDP_cycle\tIF2.GDP dissociation\t1 IF2_GDP --> 1 IF2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
+    push @{$reactions{"Recycling"}}, "IF2_GDP_cycle\tIF2_GDP dissociation\t1 IF2_GDP --> 1 IF2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
     push @{$reactions{"Recycling"}}, "Rib_cycle\tInactive 70S ribosome dissociation plus initiation factor binding\t1 rib_70 + 1 IF1 + 1 IF2 + 1 IF3 + $cpd_map{gtp} --> 1 rib_30_ini + 1 rib_50\tirreversible\tRecycling\n";
     foreach my $factor (sort keys %{$factors{RNAP}}) {
 	push @{$reactions{"Recycling"}}, "RNAP_sigma_cycle_$factor\tRNAP ($factor) association with sigma factor\t1 $factor + 1 $sigm --> 1 $rnap\tirreversible\tRecycling\n";
@@ -1715,17 +1715,19 @@ sub build_me_model
 	    $rev = ($rev eq "irreversible") ? ">" : "=";
 	    my ($substrates, $products) = split "-->", $formula;
 	    my (@reagents);
-	    while ($substrates =~ /(\d+) (\S+)/g) {
-		print STDERR "Coefficient is $1 for $2 in $rxn\n" if -1.0*(int $1) == 0;
+	    while ($substrates =~ /(\d+)\s(\S+)/g) {
+		my $coef = $1;
 		my $cid = $2;
+		print STDERR "Coefficient is $coef for $cid in $rxn\n" if -1.0*(int $coef) == 0;
 		$cid =~ s/_//g; # remove underscores
-		push @reagents, {"coefficient"=> -1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
+		push @reagents, {"coefficient"=> -1.0*int($coef),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
-	    while ($products =~ /(\d+) (\S+)/g) {
-		print STDERR "Coefficient is $1 for $2 in $rxn\n" if 1.0*(int $1) == 0;
+	    while ($products =~ /(\d+)\s(\S+)/g) {
+		my $coef = $1;
 		my $cid = $2;
+		print STDERR "Coefficient is $coef for $cid in $rxn\n" if -1.0*(int $coef) == 0;
 		$cid =~ s/_//g; # remove underscores
-		push @reagents, {"coefficient"=> 1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
+		push @reagents, {"coefficient"=> 1.0*int($coef),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
 	    
 	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"489/6/13/reactions/id/rxn00000","modelReactionProteins"=>[]};
