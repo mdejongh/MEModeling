@@ -793,7 +793,12 @@ sub build_me_model
 	push @{$compounds{$gene}},"transcr_ini_$gene\_cplx\ttranscription initiation complex $gene\tC${complexC}H${complexH}N${complexN}O${complexO}S${complexS}P${complexP}Mg${complexMg}Zn${complexZn}Fe${complexFe}\t${complexcharge}\tTranscription\t${firstG}G ${firstC}C ${firstU}U ${firstA}A\n";
 
 	if ($type eq "CDS") {
-	    push @{$reactions{$gene}}, "tscr_ini_$gene\tTranscription initiation of $gene\t1 $gene\_DNA_act + 1 $rnap + $firstA $cpd_map{atp} + $firstC $cpd_map{ctp} + $firstG $cpd_map{gtp} + $firstU $cpd_map{utp} --> 1 transcr_ini_$gene\_cplx + 1 $sigm + ".($firstA + $firstC + $firstG + $firstU-1)." $cpd_map{ppi}\treversible\tTranscription\n";
+	    my $tscr_ini = "tscr_ini_$gene\tTranscription initiation of $gene\t1 $gene\_DNA_act + 1 $rnap";
+	    $tscr_ini .= " + $firstA $cpd_map{atp}" if $firstA > 0;
+	    $tscr_ini .= " + $firstC $cpd_map{ctp}" if $firstC > 0;
+	    $tscr_ini .= " + $firstG $cpd_map{gtp}" if $firstG > 0;
+	    $tscr_ini .= " + $firstU $cpd_map{utp}" if $firstU > 0;
+	    push @{$reactions{$gene}}, $tscr_ini." --> 1 transcr_ini_$gene\_cplx + 1 $sigm + ".($firstA + $firstC + $firstG + $firstU-1)." $cpd_map{ppi}\treversible\tTranscription\n";
 
 	    ###########################
 	    # RHO DEPENDENT TERMINATION
@@ -1295,7 +1300,7 @@ sub build_me_model
 	    {			
 		if (defined $trnas_for_gene{$trna} && $trnas_for_gene{$trna} != 0)
 		{
-		    if ($trna eq ${second_last_codon})
+		    if ($trna eq ${second_last_codon} && $trnas_for_gene{$trna} > 1)
 		    {		
 			$rxn7 .= "+ ".($a*$trnas_for_gene{$trna}-$a); # does not remove last aa-trna from complex
 			$rxn7 .= " $trna ";
@@ -1701,15 +1706,18 @@ sub build_me_model
     }
 
     foreach my $gene (keys %reactions) {
+	next unless $gene eq "Recycling" || $gene eq "kb_g_0_peg_3800";
 	foreach my $rxn (@{$reactions{$gene}}) {
 	    my ($id, $name, $formula, $rev, undef) = split "\t", $rxn;
 	    $rev = ($rev eq "irreversible") ? ">" : "=";
 	    my ($substrates, $products) = split "-->", $formula;
 	    my (@reagents);
 	    while ($substrates =~ /(\d+) (\S+)/g) {
+		print STDERR "Coefficient is $1 for $2 in $rxn\n" if -1.0*(int $1) == 0;
 		push @reagents, {"coefficient"=> -1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
 	    }
 	    while ($products =~ /(\d+) (\S+)/g) {
+		print STDERR "Coefficient is $1 for $2 in $rxn\n" if 1.0*(int $1) == 0;
 		push @reagents, {"coefficient"=> 1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
 	    }
 	    
