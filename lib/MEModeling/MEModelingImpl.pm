@@ -566,7 +566,7 @@ sub build_me_model
     map { $fmet_trna_met_formula{$_} = int($fmet_trna_met_formula{$_}/$trna_met_count) } keys %fmet_trna_met_formula;
     $fmet_trna_met_formula{C} = $fmet_trna_met_formula{C}++;
     $fmet_trna_met_formula{O} = $fmet_trna_met_formula{O}++;
-    $formulae{"fmet_trna_met"} = \%fmet_trna_met_formula;
+    $formulae{"fmet_tRNA_met"} = \%fmet_trna_met_formula;
 
     ###########################################
     # Molecular Weight of different Elements
@@ -1728,6 +1728,26 @@ sub build_me_model
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
     }
 
+    # handle RNAP_70 since it isn't in factors.txt
+    {
+	    my $id = "RNAP_70";
+	    $id =~ s/_//g; # remove underscores
+	    my $name = "RNAP_70";
+	    my $charge = 0; # FIX THIS
+	    my $formula = "C1"; #FIX THIS
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+    }
+
+    # handle fmet_trna since it isn't in factors.txt
+    {
+	    my $id = "fmet_tRNA";
+	    $id =~ s/_//g; # remove underscores
+	    my $name = "fmet_tRNA";
+	    my $charge = 0; # FIX THIS
+	    my $formula = "C1"; #FIX THIS
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+    }
+
     # need tRNAs
     foreach my $trna (keys %formula_tRNA) {
 	    my $id = $trna;
@@ -1772,7 +1792,7 @@ sub build_me_model
 		push @reagents, {"coefficient"=> 1.0*int($coef),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
 	    
-	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"489/6/13/reactions/id/rxn00000","modelReactionProteins"=>[]};
+	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"~/template/biochemistry/reactions/id/rxn00000","modelReactionProteins"=>[]};
 	}
     }
 
