@@ -1702,6 +1702,7 @@ sub build_me_model
 	next unless $gene eq "Recycling" || $gene eq "kb_g_0_peg_3800";
 	foreach my $cpd (@{$compounds{$gene}}) {
 	    my ($id, $name, $formula, $charge, undef) = split "\t", $cpd;
+	    $id =~ s/_//g; # remove underscores
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
 	}
     }
@@ -1710,23 +1711,28 @@ sub build_me_model
 	next unless $gene eq "Recycling" || $gene eq "kb_g_0_peg_3800";
 	foreach my $rxn (@{$reactions{$gene}}) {
 	    my ($id, $name, $formula, $rev, undef) = split "\t", $rxn;
+	    $id =~ s/_//g; # remove underscores
 	    $rev = ($rev eq "irreversible") ? ">" : "=";
 	    my ($substrates, $products) = split "-->", $formula;
 	    my (@reagents);
 	    while ($substrates =~ /(\d+) (\S+)/g) {
 		print STDERR "Coefficient is $1 for $2 in $rxn\n" if -1.0*(int $1) == 0;
-		push @reagents, {"coefficient"=> -1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
+		my $cid = $2;
+		$cid =~ s/_//g; # remove underscores
+		push @reagents, {"coefficient"=> -1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
 	    while ($products =~ /(\d+) (\S+)/g) {
 		print STDERR "Coefficient is $1 for $2 in $rxn\n" if 1.0*(int $1) == 0;
-		push @reagents, {"coefficient"=> 1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
+		my $cid = $2;
+		$cid =~ s/_//g; # remove underscores
+		push @reagents, {"coefficient"=> 1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
 	    
 	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"489/6/13/reactions/id/rxn00000","modelReactionProteins"=>[]};
 	}
     }
 
-    push @{$model->{biomasses}->[0]->{biomasscompounds}}, {"coefficient"=>-1,"gapfill_data"=>{},"modelcompound_ref"=>"~/modelcompounds/id/kb_g_0_peg_3800_c0"};
+    push @{$model->{biomasses}->[0]->{biomasscompounds}}, {"coefficient"=>-1,"gapfill_data"=>{},"modelcompound_ref"=>"~/modelcompounds/id/kbg0peg3800_c0"};
 
     my $me_metadata = $wsClient->save_objects({
 	'workspace' => $workspace,
