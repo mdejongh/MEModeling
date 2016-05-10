@@ -1696,7 +1696,7 @@ sub build_me_model
     foreach my $gene (keys %compounds) {
 	foreach my $cpd (@{$compounds{$gene}}) {
 	    my ($id, $name, $formula, $charge, undef) = split "\t", $cpd;
-	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
 	}
     }
 
@@ -1707,10 +1707,10 @@ sub build_me_model
 	    my ($substrates, $products) = split "-->", $formula;
 	    my (@reagents);
 	    while ($substrates =~ /(\d+) (\S+)/g) {
-		push @reagents, {"coefficient"=> "-".$1,"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
+		push @reagents, {"coefficient"=> -1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
 	    }
 	    while ($products =~ /(\d+) (\S+)/g) {
-		push @reagents, {"coefficient"=> $1,"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
+		push @reagents, {"coefficient"=> 1.0*int($1),"modelcompound_ref"=>"~/modelcompounds/id/$2_c0"};
 	    }
 	    
 	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"489/6/13/reactions/id/rxn00000","modelReactionProteins"=>[]};
