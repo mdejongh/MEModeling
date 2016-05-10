@@ -69,7 +69,7 @@ eval {
     print STDERR "$@\n" if defined $@;
 
     # apply petri-net test
-    my %test = petri('kb_g_0_peg_3800',$result->{reactions});
+    my %test = petri('kb|g.0.peg.3800',$result->{reactions});
     print STDERR &Dumper(\%test);
 
     done_testing(0);
@@ -143,9 +143,7 @@ Val
  /;
 
     my ($gene,$reactions) = @_;
-    my @reactions = (@{$reactions->{$gene}}, @{$reactions->{Recycling}});
-
-    $gene =~ s/\W//g;
+    $gene =~ s/\W/_/g;
 
     my %rxns2substrates;
     my %rxns2products;
@@ -153,9 +151,9 @@ Val
     my %recycling;
 
     sub myrib {
-	if ($a =~ /tlini.*(\d+)rib/) {
+	if ($a =~ /tl_ini_.*_(\d+)_rib/) {
 	    my $arib = $1;
-	    if ($b =~ /tlini.*(\d+)rib/) {
+	    if ($b =~ /tl_ini_.*_(\d+)_rib/) {
 		my $brib = $1;
 		return $arib <=> $brib;
 	    }
@@ -167,6 +165,8 @@ Val
 
     my $idprefix = "me_rxn";
     my $i = 0;
+
+    my @reactions = (@{$reactions->{$gene}}, @{$reactions->{Recycling}});
 
     foreach (@reactions) {
 	# id	direction	compartment	gpr	name	enzyme	pathway	reference	equation
@@ -223,7 +223,7 @@ Val
 	print STDERR join(" + ", @subs), " ", $arrow, " ", join(" + ", @prods), "\n";
     }
 
-    my %pool = ( "${gene}DNAneu" => 1, "EF_Ts" => 1 );
+    my %pool = ( "${gene}_DNA_neu" => 1, "EF_Ts" => 1 );
     my %used_rxns;
     my $recycle = 0;
 
