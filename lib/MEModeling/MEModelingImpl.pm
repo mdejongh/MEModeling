@@ -483,7 +483,7 @@ sub build_me_model
     # TEMPORARY!
     $tt_genes{'kb_g_0_peg_3800'} = 'kb_g_0_peg_3800';
 
-    open (FACTORS, "../data/factors.txt") or die("Couldn't open factors.txt: $!");
+    open (FACTORS, "data/factors.txt") or die("Couldn't open factors.txt: $!");
     while (<FACTORS>) {
 	chomp;
 	my ($category, $fname, $fr, $formula, $charge) = split "\t";
