@@ -480,9 +480,6 @@ sub build_me_model
     # read factors.txt and calculate formula and charge
     my (%factors, %formulae, %tt_genes);
 
-    # TEMPORARY!
-    $tt_genes{'kb_g_0_peg_3800'} = 'kb_g_0_peg_3800';
-
     open (FACTORS, "data/factors.txt") or open (FACTORS, "../data/factors.txt") or die("Couldn't open factors.txt: $!");
     while (<FACTORS>) {
 	chomp;
@@ -491,7 +488,6 @@ sub build_me_model
 	    print STDERR "No gene defined for TT factor '$fr' [$fname]\n";
 	    next;
 	}
-	$tt_genes{$fr2gene{$fr}} = $fname;
 	my ($extra, %extra);
 	if ($fname =~ /_GDP$/) {
 	    $extra = "_GDP";
@@ -508,6 +504,12 @@ sub build_me_model
 	elsif ($fname =~ /_spmd$/) {
 	    $extra = "_spmd";
 	    %extra = ( 'C' => 10, 'H' => 30, 'N' => 4, 'charge' => 4 );
+	}
+	if ($fr ne "") {
+	    my $fnameless = $fname;
+	    $fnameless =~ s/$extra//g;
+	    print STDERR "Adding TT gene: '$fr2gene{$fr}' for '$fr' and '$fnameless'\n";
+	    $tt_genes{$fr2gene{$fr}} = $fnameless;
 	}
 	if ($fr ne "") {
 	    $factors{$category}{$fname} = $fr2gene{$fr}.$extra;
@@ -882,7 +884,12 @@ sub build_me_model
 
 	    push @{$compounds{$gene}}, "$gene\_RNA\t$type\tC${cds_rna_C}H${cds_rna_H}N${cds_rna_N}O${cds_rna_O}P${cds_rna_P}\t${cds_rna_charge}\tRNA cutting".(${cdsG}+${cdsC}+${cdsU}+${cdsA}).", ($status_quo), , ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
 
-	    push @{$reactions{$gene}}, "tscr_ini_$gene\_stab\tTranscription initiation of $gene (stable RNA) (, $gene)\t1 $gene\_DNA_act + 1 $rnap + ${firstA} $cpd_map{atp} + ${firstC} $cpd_map{ctp} + ${firstG} $cpd_map{gtp} + ${firstU} $cpd_map{utp} --> 1 transcr_ini_$gene\_cplx + 1 $sigm + ".(${firstA} + ${firstC}+ ${firstG} + ${firstU}-1)." $cpd_map{ppi}\treversible\tTranscription\n";
+	    my $tscrna_ini = "tscr_ini_$gene\_stab\tTranscription initiation of $gene (stable RNA) (, $gene)\t1 $gene\_DNA_act + 1 $rnap";
+	    $tscrna_ini .= " + $firstA $cpd_map{atp}" if $firstA > 0;
+	    $tscrna_ini .= " + $firstC $cpd_map{ctp}" if $firstC > 0;
+	    $tscrna_ini .= " + $firstG $cpd_map{gtp}" if $firstG > 0;
+	    $tscrna_ini .= " + $firstU $cpd_map{utp}" if $firstU > 0;
+	    push @{$reactions{$gene}}, $tscrna_ini." --> 1 transcr_ini_$gene\_cplx + 1 $sigm + ".(${firstA} + ${firstC}+ ${firstG} + ${firstU}-1)." $cpd_map{ppi}\treversible\tTranscription\n";
 	    
 	    my $rxn3 = "tscr_elo_$gene\_ini\_stab\tFormation complex for elongation of $gene (stable RNA)\t1 transcr_ini_$gene\_cplx ";
 	    foreach my $factor (sort keys %{$factors{TranscriptionTerminationRNA}})
@@ -1305,7 +1312,7 @@ sub build_me_model
 			$rxn7 .= "+ ".($a*$trnas_for_gene{$trna}-$a); # does not remove last aa-trna from complex
 			$rxn7 .= " $trna ";
 		    }
-		    else
+		    elsif ($trna ne ${second_last_codon})
 		    {
 			$rxn7 .= "+ ".($a*$trnas_for_gene{$trna});
 			$rxn7 .= " $trna ";
@@ -1649,11 +1656,12 @@ sub build_me_model
 
 	$mw_protein=$mw{C}*$m_count{C}+$mw{H}*$m_count{H}+$mw{N}*$m_count{N}+$mw{O}*$m_count{O}+$mw{S}*$m_count{S};
 
-	if (exists $tt_genes{$gene}) {
-	    push @{$reactions{$tt_genes{$gene}}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $tt_genes{$gene}\tirreversible\tProtein Folding\n";    
-	    push @{$compounds{$tt_genes{$gene}}}, "$tt_genes{$gene}\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
-	}
-	else {
+# 	if (exists $tt_genes{$gene}) {
+# 	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $tt_genes{$gene}\tirreversible\tProtein Folding\n";    
+# 	    push @{$compounds{$gene}}, "$tt_genes{$gene}\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
+# 	}
+#	else 
+	{
 	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $gene\_mono\tirreversible\tProtein Folding\n";    
 	    push @{$compounds{$gene}}, "$gene\_mono\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
 	}
@@ -1760,7 +1768,6 @@ sub build_me_model
     }
 
     foreach my $gene (keys %compounds) {
-	next unless $gene eq "Recycling" || $gene eq "kb_g_0_peg_3800";
 	foreach my $cpd (@{$compounds{$gene}}) {
 	    my ($id, $name, $formula, $charge, undef) = split "\t", $cpd;
 	    $id =~ s/_//g; # remove underscores
@@ -1769,7 +1776,6 @@ sub build_me_model
     }
 
     foreach my $gene (keys %reactions) {
-	next unless $gene eq "Recycling" || $gene eq "kb_g_0_peg_3800";
 	foreach my $rxn (@{$reactions{$gene}}) {
 	    my ($id, $name, $formula, $rev, undef) = split "\t", $rxn;
 	    $id =~ s/_//g; # remove underscores
@@ -1796,7 +1802,19 @@ sub build_me_model
 	}
     }
 
-    push @{$model->{biomasses}->[0]->{biomasscompounds}}, {"coefficient"=>-1,"gapfill_data"=>{},"modelcompound_ref"=>"~/modelcompounds/id/kbg0peg3800_c0"};
+    print STDERR &Dumper(\%tt_genes);
+
+    # construct biomass that includes production of tt factors
+    my %biomass = %{$model->{biomasses}->[0]};
+    my @biomasscpds = @{$model->{biomasses}->[0]->{biomasscompounds}};
+    $biomass{id} = "bio_tt";
+    $biomass{biomasscompounds} = \@biomasscpds;
+    push @{$model->{biomasses}}, \%biomass;
+    foreach my $gene (keys %tt_genes) {
+	$gene.="_mono";
+	$gene =~ s/_//g; # remove underscores
+	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
+    }
 
     my $me_metadata = $wsClient->save_objects({
 	'workspace' => $workspace,

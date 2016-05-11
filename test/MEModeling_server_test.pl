@@ -73,8 +73,10 @@ eval {
     print STDERR "$@\n" if defined $@;
 
     # apply petri-net test
-    my %test = petri('kb|g.0.peg.3800',$result->{reactions});
-    print STDERR &Dumper(\%test);
+    foreach my $gene (keys %{$result->{reactions}}) {
+	my %test = petri($gene,$result->{reactions});
+	print STDERR &Dumper(\%test);
+    }
 
     done_testing(0);
 };
@@ -177,10 +179,10 @@ Val
 	chomp;
 	my ($id, $def, $equation, $rev, $subsys) = split "\t";
 
-	print STDERR $idprefix.($i++)."[c0]", "\t";
+#	print STDERR $idprefix.($i++)."[c0]", "\t";
 	my $arrow = ($rev eq "irreversible" ? "=>" : "<=>");
-	print STDERR $arrow, "\t";
-	print STDERR "c0\t\t$id\t\t\t\t";
+#	print STDERR $arrow, "\t";
+#	print STDERR "c0\t\t$id\t\t\t\t";
 
 	my ($substrates, $products) = split /-->/, $equation;
 
@@ -224,7 +226,7 @@ Val
 	    push @prods, "($coef) ${prod}[c0]";
 	}
 
-	print STDERR join(" + ", @subs), " ", $arrow, " ", join(" + ", @prods), "\n";
+#	print STDERR join(" + ", @subs), " ", $arrow, " ", join(" + ", @prods), "\n";
     }
 
     my %pool = ( "${gene}_DNA_neu" => 1, "EF_Ts" => 1 );
