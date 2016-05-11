@@ -21,6 +21,26 @@ use Bio::KBase::workspace::Client;
 use Config::IniFiles;
 use Data::Dumper;
 
+sub combos {
+    my ($lol) = @_;
+    my $retval = [];
+    return $retval if @$lol == 0;
+    if (@$lol == 1) {
+	map { push @$retval, [$_] } @{$lol->[0]};
+    }
+    else {
+	my $first = pop @$lol;
+	my $inter = combos($lol);
+	foreach my $el (@$first) {
+	    foreach my $el2 (@$inter) {
+		my %inner = map { $_ => 1 } ($el, @$el2);
+		push $retval, [keys %inner];
+	    }
+	}
+    }
+    return $retval;
+}
+
 sub get_dna {
     my ($feature, $contigset) = @_;
     my $ret = $feature->{dna_sequence};
@@ -508,7 +528,6 @@ sub build_me_model
 	if ($fr ne "") {
 	    my $fnameless = $fname;
 	    $fnameless =~ s/$extra//g;
-	    print STDERR "Adding TT gene: '$fr2gene{$fr}' for '$fr' and '$fnameless'\n";
 	    $tt_genes{$fr2gene{$fr}} = $fnameless;
 	}
 	if ($fr ne "") {
@@ -709,16 +728,50 @@ sub build_me_model
     foreach my $aa_name (keys %{$genetic_code{$assigned_code}}) {
 	foreach my $codon (keys %{$genetic_code{$assigned_code}{$aa_name}}) {
 	    if (! exists $code_tRNA{$codon}) {
-		print STDERR "No tRNA assignment for codon $codon\n";
 		if (exists $default_codon_assignment{$codon}) {
 		    print STDERR "\t assigning $default_codon_assignment{$codon}{trna}\n";
 		    $code_tRNA{$codon}{trna} = $default_codon_assignment{$codon}{trna};
 		    $code_tRNA{$codon}{aa} = $default_codon_assignment{$codon}{aa};
 		}
 		else {
-		    print STDERR "\t NO DEFAULT ASSIGNMENT!\n";
+		    print STDERR "No tRNA assignment for codon $codon and NO DEFAULT ASSIGNMENT!\n";
 		}
 	    }
+	}
+    }
+
+    # process the model reactions to determine which genes are associated with them
+    # and to reformulate them
+    my (@newmodelrxns, %m_genes);
+
+    foreach my $modelrxn (@{$model->{modelreactions}}) {
+	print STDERR "Processing ", $modelrxn->{id}, "\n";
+	my $proteins = $modelrxn->{modelReactionProteins};
+	# if there are no associated genes, just keep the reaction
+	if (@$proteins == 0) {
+	    push @newmodelrxns, $modelrxn;
+	    next;
+	}
+	# otherwise, assemble the catalyzing protein complexes
+	my $complexes; # list of protein complexes that are ORed
+	foreach my $protein (@$proteins) {
+	    my $subunits = []; # list of subunits that are ANDed
+	    foreach my $subunit (@{$protein->{modelReactionProteinSubunits}}) {
+		my %features; # list of features that are ORed
+		foreach my $ftr (@{$subunit->{feature_refs}}) {
+		    my $gene = pop([split("/",$ftr)]);
+		    $gene =~ s/\W/_/g;
+		    $features{$gene} = 1;
+		    $m_genes{$gene} = 1; # remember to do TT on this gene
+		}
+		push @$subunits, [keys %features] if (keys %features > 0);
+	    }
+	    push @$complexes, @{&combos($subunits)};
+	}
+
+	foreach my $complex (@$complexes) {
+	    print STDERR "Found complex for ", $modelrxn->{id}, "\n";
+	    print STDERR &Dumper($complex);
 	}
     }
 
@@ -1721,8 +1774,14 @@ sub build_me_model
 	    my $id = "EF_Tu_Ts";
 	    $id =~ s/_//g; # remove underscores
 	    my $name = "EF_Tu_Ts";
-	    my $charge = 0; # FIX THIS
-	    my $formula = "C1"; #FIX THIS
+	    my %ef_tu_ts = %{$formulae{"EF_Ts"}};
+	    my %ef_tu_gdp = %{$formulae{"EF_Tu_GDP"}};
+	    map { $ef_tu_ts{$_} += $ef_tu_gdp{$_} } keys %ef_tu_gdp;
+	    my %gdp = ( 'C' => 10, 'H' => 13, 'N' => 5, 'O' => 11, 'P' => 2, 'charge' => -2 );
+	    map { $ef_tu_ts{$_} -= $gdp{$_} } keys %gdp;
+	    my $charge = $ef_tu_ts{charge};
+	    my $formula = "";
+	    map { $formula.=$_.$ef_tu_ts{$_} if $ef_tu_ts{$_} > 0 && $_ ne "charge" } sort keys %ef_tu_ts;
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
     }
 
@@ -1731,8 +1790,12 @@ sub build_me_model
 	    my $id = "IF2";
 	    $id =~ s/_//g; # remove underscores
 	    my $name = "IF2";
-	    my $charge = 0; # FIX THIS
-	    my $formula = "C1"; #FIX THIS
+	    my %if2 = %{$formulae{"IF2_GDP"}};
+	    my %gdp = ( 'C' => 10, 'H' => 13, 'N' => 5, 'O' => 11, 'P' => 2, 'charge' => -2 );
+	    map { $if2{$_} -= $gdp{$_} } keys %gdp;
+	    my $charge = $if2{charge};
+	    my $formula = "";
+	    map { $formula.=$_.$if2{$_} if $if2{$_} > 0 && $_ ne "charge" } sort keys %if2;
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
     }
 
@@ -1751,8 +1814,12 @@ sub build_me_model
 	    my $id = "fmet_tRNA";
 	    $id =~ s/_//g; # remove underscores
 	    my $name = "fmet_tRNA";
-	    my $charge = 0; # FIX THIS
-	    my $formula = "C1"; #FIX THIS
+	    my %fmet_trna = %{$formulae{"fmet_tRNA_met"}};
+	    my %fmet = ( 'C' => 6, 'H' => 11, 'N' => 1, 'O' => 3, 'S' => 1, 'charge' => 0 );
+	    map { $fmet_trna{$_} -= $fmet{$_} } keys %fmet;
+	    my $charge = $fmet_trna{charge};
+	    my $formula = "";
+	    map { $formula.=$_.$fmet_trna{$_} if $fmet_trna{$_} > 0 && $_ ne "charge" } sort keys %fmet_trna;
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
     }
 
@@ -1802,8 +1869,6 @@ sub build_me_model
 	}
     }
 
-    print STDERR &Dumper(\%tt_genes);
-
     # construct biomass that includes production of tt factors
     my %biomass = %{$model->{biomasses}->[0]};
     my @biomasscpds = @{$model->{biomasses}->[0]->{biomasscompounds}};
@@ -1825,7 +1890,7 @@ sub build_me_model
 	    'provenance' => $provenance
 		      }]});
 
-    my $report = "ME Model saved to $workspace/$output_id\n";
+    my $report = "ME Model saved to $workspace/$output_id\n Transcription/Translation genes: ".&Dumper(\%tt_genes);
     my $reportObj = { "objects_created"=>[{'ref'=>"$workspace/$output_id", "description"=>"Metabolism-Expression Model"}],
 		      "text_message"=>$report };
     my $reportName = "build_me_model_report";
