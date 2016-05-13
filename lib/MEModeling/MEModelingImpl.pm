@@ -740,19 +740,15 @@ sub build_me_model
 	}
     }
 
-    # process the model reactions to determine which genes are associated with them
-    # and to reformulate them
-    my (@newmodelrxns, %m_genes);
+    # process the model reactions to determine which genes are associated with them;
+    # map their ids to their protein complexes
+    my (%modelrxn_complexes, %m_genes);
 
     foreach my $modelrxn (@{$model->{modelreactions}}) {
-	print STDERR "Processing ", $modelrxn->{id}, "\n";
 	my $proteins = $modelrxn->{modelReactionProteins};
-	# if there are no associated genes, just keep the reaction
-	if (@$proteins == 0) {
-	    push @newmodelrxns, $modelrxn;
-	    next;
-	}
-	# otherwise, assemble the catalyzing protein complexes
+	next if (@$proteins == 0);
+	print STDERR "Processing model reaction proteins for ", $modelrxn->{id}, "\n";
+	# assemble the catalyzing protein complexes
 	my $complexes; # list of protein complexes that are ORed
 	foreach my $protein (@$proteins) {
 	    my $subunits = []; # list of subunits that are ANDed
@@ -766,13 +762,11 @@ sub build_me_model
 		}
 		push @$subunits, [keys %features] if (keys %features > 0);
 	    }
-	    push @$complexes, @{&combos($subunits)};
+	    my $combos = &combos($subunits);
+	    push @$complexes, @$combos;
 	}
 
-	foreach my $complex (@$complexes) {
-	    print STDERR "Found complex for ", $modelrxn->{id}, "\n";
-	    print STDERR &Dumper($complex);
-	}
+	$modelrxn_complexes{$modelrxn->{id}} = $complexes;
     }
 
     # sets sigma factor 70 as default sigma factor
@@ -781,10 +775,12 @@ sub build_me_model
 
     my (%reactions, %compounds);
 
+    # create TT reactions and compounds for features that are involved in TT
+    # or are associated with modelreactions
     foreach my $feature (@{$genome->{features}}) {
 	my $gene = $feature->{id};
 	$gene =~ s/\W/_/g;
-	next unless exists $tt_genes{$gene}; # only process TT genes for now
+	next unless exists $tt_genes{$gene} || exists $m_genes{$gene};
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
 	my $cds = &get_dna($feature, $contigset);
@@ -1749,14 +1745,217 @@ sub build_me_model
 	}				
     }				
 
-# not sure how this happens exactly, but probably OK - NEED TO MASS BALANCE AND ADD COFACTORS (E.G., H2O?)
-# leave IF2 all by itself because it only appears in recycling reactions
     push @{$reactions{"Recycling"}}, "IF2_GDP_cycle\tIF2_GDP dissociation\t1 IF2_GDP --> 1 IF2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
     push @{$reactions{"Recycling"}}, "Rib_cycle\tInactive 70S ribosome dissociation plus initiation factor binding\t1 rib_70 + 1 IF1 + 1 IF2 + 1 IF3 + $cpd_map{gtp} --> 1 rib_30_ini + 1 rib_50\tirreversible\tRecycling\n";
     foreach my $factor (sort keys %{$factors{RNAP}}) {
 	push @{$reactions{"Recycling"}}, "RNAP_sigma_cycle_$factor\tRNAP ($factor) association with sigma factor\t1 $factor + 1 $sigm --> 1 $rnap\tirreversible\tRecycling\n";
     }
     push @{$reactions{"Recycling"}}, "fmet_tRNA_cycle\tCharging of fmet-tRNA with methionine and formyl group\t1 fmet_tRNA + 1 $cpd_map{for} + 1 $cpd_map{Met} --> 1 fmet_tRNA_met\tirreversible\tRecycling\n";
+
+    # time to reformulate modelreactions
+    my $newmodelreactions = [];
+
+    foreach my $modelrxn (@{$model->{modelreactions}}) {
+	my $mrid = $modelrxn->{id};
+	unless (exists $modelrxn_complexes{$mrid}) {
+	    push @$newmodelreactions, $modelrxn;
+	    next;
+	}
+	print STDERR "Reformulating model reaction ", $mrid, "\n";
+	foreach my $complex (@{$modelrxn_complexes{$mrid}}) {
+	    my %template = map { $_ => $modelrxn->{$_} } qw/probability gapfill_data protons modelcompartment_ref aliases complex_ref/; # all reactions based off original
+	    $template{reaction_ref} = "~/template/biochemistry/reactions/id/rxn00000";
+	    $template{modelReactionProteins} = [];
+	    my ($cid, $cname);
+
+	    if (@$complex > 1) {
+		$cname = join("_", @$complex)."_cplx";
+		$cid = $cname;
+		$cid =~ s/_//g; # remove underscores
+		my %cplx_form = %template; # create cplx_FORM
+		my $formula = "C1"; # FIX THIS
+		my $charge = 0; # FIX THIS
+		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$cid."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$cname."_c0"};
+		my @reagents = ({"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${cid}_c0"});
+		foreach my $gene (@$complex) {
+		    my $gid = $gene."_mono";
+		    $gid =~ s/_//g; # remove underscores
+		    my $gformula = "C1"; # FIX THIS
+		    my $gcharge = 0; # FIX THIS
+		    push @reagents, {"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${gid}_c0"};
+		}
+		$cplx_form{id} = $cid."FORM_c0";
+		$cplx_form{name} = $cname."_FORM";
+		$cplx_form{modelReactionReagents} = \@reagents;
+		$cplx_form{direction} = "=";
+		push @$newmodelreactions, \%cplx_form;
+	    }
+	    else {
+		$cname = $complex->[0]."_mono";
+		$cid = $cname;
+		$cid =~ s/_//g; # remove underscores
+	    }
+
+	    my $rid = $mrid;
+	    $rid =~ s/_c0$//;
+
+	    my $inact_name = $cid."_inact";
+	    my $inact_id = $inact_name;
+	    $inact_id =~ s/_//g; # remove underscores
+	    my $inact_formula = "C1"; # FIX THIS
+	    my $inact_charge = 0; # FIX THIS
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$inact_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$inact_formula,"id"=>$inact_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$inact_name."_c0"};
+
+
+	    if ($modelrxn->{direction} eq ">" || $modelrxn->{direction} eq "=") {
+		# STEP A: ENZYME BINDS SUBSTRATES IN FORWARD DIRECTION
+		my %stepA = %template;
+		$stepA{id} = $rid.$cid."A_c0";
+		$stepA{name} = $rid."_".$cid."_A_c0";
+		$stepA{direction} = "=";
+		my  @stepAreagents =  ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${cid}_c0"});
+		my $stepAcplx_name = $cid;
+		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
+		    if ($rgt->{coefficient} < 0) {
+			push @stepAreagents, $rgt;
+			my $rgtid = pop([split("/",$rgt->{modelcompound_ref})]);
+			$rgtid =~ s/_c0$//;
+			$stepAcplx_name .= "_".$rgtid;
+		    }
+		}
+		$stepAcplx_name .= "_cplx";
+		my $stepAcplx_id = $stepAcplx_name;
+		$stepAcplx_id =~ s/_//g; # remove underscores
+		my $stepAcplx_formula = "C1"; # FIX THIS
+		my $stepAcplx_charge = 0; # FIX THIS
+		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepAcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepAcplx_formula,"id"=>$stepAcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepAcplx_name."_c0"};
+		push @stepAreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepAcplx_id}_c0"};
+		$stepA{modelReactionReagents} = \@stepAreagents;
+		push @$newmodelreactions, \%stepA;
+
+		# STEP B: ENZYME CONVERTS SUBSTRATES TO PRODUCTS IN FORWARD DIRECTION
+		my %stepB = %template;
+		$stepB{id} = $rid.$cid."B_c0";
+		$stepB{name} = $rid."_".$cid."_B_c0";
+		$stepB{direction} = ">";
+		my @stepBreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepAcplx_id}_c0"});
+		my $stepBcplx_name = $cid;
+		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
+		    if ($rgt->{coefficient} > 0) {
+			my $rgtid = pop([split("/",$rgt->{modelcompound_ref})]);
+			$rgtid =~ s/_c0$//;
+			$stepBcplx_name .= "_".$rgtid;
+		    }
+		}
+		$stepBcplx_name .= "_cplx";
+		my $stepBcplx_id = $stepBcplx_name;
+		$stepBcplx_id =~ s/_//g; # remove underscores
+		my $stepBcplx_formula = "C1"; # FIX THIS
+		my $stepBcplx_charge = 0; # FIX THIS
+		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepBcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepBcplx_formula,"id"=>$stepBcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepBcplx_name."_c0"};
+		push @stepBreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepBcplx_id}_c0"};
+		$stepB{modelReactionReagents} = \@stepBreagents;
+		push @$newmodelreactions, \%stepB;
+
+		# STEP C: ENZYME DISASSOCIATES WITH PRODUCTS IN FORWARD DIRECTION
+		my %stepC = %template;
+		$stepC{id} = $rid.$cid."C_c0";
+		$stepC{name} = $rid."_".$cid."_C_c0";
+		$stepC{direction} = ">";
+		my @stepCreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepBcplx_id}_c0"});
+		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
+		    if ($rgt->{coefficient} > 0) {
+			push @stepCreagents, $rgt;
+		    }
+		}
+		push @stepCreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${inact_id}_c0"};
+		$stepC{modelReactionReagents} = \@stepCreagents;
+		push @$newmodelreactions, \%stepC;
+	    }
+
+	    if ($modelrxn->{direction} eq "<" || $modelrxn->{direction} eq "=") {
+		# STEP E: ENZYME BINDS PRODUCTS IN REVERSE DIRECTION
+		my %stepE = %template;
+		$stepE{id} = $rid.$cid."E_c0";
+		$stepE{name} = $rid."_".$cid."_E_c0";
+		$stepE{direction} = "=";
+		my  @stepEreagents =  ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${cid}_c0"});
+		my $stepEcplx_name = $cid;
+		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
+		    if ($rgt->{coefficient} > 0) {
+			my %copy = %$rgt;
+			$copy{coefficient} = -$rgt->{coefficient};
+			push @stepEreagents, \%copy;
+			my $rgtid = pop([split("/",$rgt->{modelcompound_ref})]);
+			$rgtid =~ s/_c0$//;
+			$stepEcplx_name .= "_".$rgtid;
+		    }
+		}
+		$stepEcplx_name .= "_cplx_R";
+		my $stepEcplx_id = $stepEcplx_name;
+		$stepEcplx_id =~ s/_//g; # remove underscores
+		my $stepEcplx_formula = "C1"; # FIX THIS
+		my $stepEcplx_charge = 0; # FIX THIS
+		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepEcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepEcplx_formula,"id"=>$stepEcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepEcplx_name."_c0"};
+		push @stepEreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepEcplx_id}_c0"};
+		$stepE{modelReactionReagents} = \@stepEreagents;
+		push @$newmodelreactions, \%stepE;
+
+		# STEP F: ENZYME CONVERTS PRODUCTS TO SUBSTRATES IN REVERSE DIRECTION
+		my %stepF = %template;
+		$stepF{id} = $rid.$cid."F_c0";
+		$stepF{name} = $rid."_".$cid."_F_c0";
+		$stepF{direction} = ">";
+		my @stepFreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepEcplx_id}_c0"});
+		my $stepFcplx_name = $cid;
+		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
+		    if ($rgt->{coefficient} < 0) {
+			my $rgtid = pop([split("/",$rgt->{modelcompound_ref})]);
+			$rgtid =~ s/_c0$//;
+			$stepFcplx_name .= "_".$rgtid;
+		    }
+		}
+		$stepFcplx_name .= "_cplx_R";
+		my $stepFcplx_id = $stepFcplx_name;
+		$stepFcplx_id =~ s/_//g; # remove underscores
+		my $stepFcplx_formula = "C1"; # FIX THIS
+		my $stepFcplx_charge = 0; # FIX THIS
+		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepFcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepFcplx_formula,"id"=>$stepFcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepFcplx_name."_c0"};
+		push @stepFreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepFcplx_id}_c0"};
+		$stepF{modelReactionReagents} = \@stepFreagents;
+		push @$newmodelreactions, \%stepF;
+
+		# STEP G: ENZYME DISASSOCIATES WITH SUBSTRATES IN REVERSE DIRECTION
+		my %stepG = %template;
+		$stepG{id} = $rid.$cid."G_c0";
+		$stepG{name} = $rid."_".$cid."_G_c0";
+		$stepG{direction} = ">";
+		my @stepGreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepFcplx_id}_c0"});
+		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
+		    if ($rgt->{coefficient} < 0) {
+			my %copy = %$rgt;
+			$copy{coefficient} = -$rgt->{coefficient};
+			push @stepGreagents, \%copy;
+		    }
+		}
+		push @stepGreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${inact_id}_c0"};
+		$stepG{modelReactionReagents} = \@stepGreagents;
+		push @$newmodelreactions, \%stepG;
+	    }
+
+	    # STEP DREC: REACTIVATE ENZYME
+	    my %stepDREC = %template;
+	    $stepDREC{id} = $rid.$cid."DREC_c0";
+	    $stepDREC{name} = $rid."_".$cid."_DREC_c0";
+	    $stepDREC{direction} = ">";
+	    my @stepDRECreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${inact_id}_c0"});
+	    push @stepDRECreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${cid}_c0"};
+	    $stepDREC{modelReactionReagents} = \@stepDRECreagents;
+	    push @$newmodelreactions, \%stepDREC;
+	}
+    }
+
+    $model->{modelreactions} = $newmodelreactions;
 
     # add factors and compounds and reactions to model and modify biomass
     foreach my $factor (keys %formulae) {
@@ -1881,6 +2080,26 @@ sub build_me_model
 	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
     }
 
+    # construct biomass that includes production of model reaction genes
+    my %biomass = %{$model->{biomasses}->[0]};
+    my @biomasscpds = @{$model->{biomasses}->[0]->{biomasscompounds}};
+    $biomass{id} = "bio_mr";
+    $biomass{biomasscompounds} = \@biomasscpds;
+    push @{$model->{biomasses}}, \%biomass;
+    foreach my $gene (keys %m_genes) {
+	$gene.="_mono";
+	$gene =~ s/_//g; # remove underscores
+	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
+    }
+
+    # finish overwriting source model JSON
+    $model->{source_id} .= "_me";
+    $model->{id} = $output_id;
+    $model->{type} = "GenomeScaleMetabolismExpression";
+    $model->{gapfillings} = [];
+    $model->{gapfilledcandidates} = [];
+    $model->{gapgens} = [];
+
     my $me_metadata = $wsClient->save_objects({
 	'workspace' => $workspace,
 	'objects' => [{
@@ -1890,7 +2109,7 @@ sub build_me_model
 	    'provenance' => $provenance
 		      }]});
 
-    my $report = "ME Model saved to $workspace/$output_id\n Transcription/Translation genes: ".&Dumper(\%tt_genes);
+    my $report = "ME Model saved to $workspace/$output_id\n Transcription/Translation genes: ".&Dumper(\%tt_genes).&Dumper(\%m_genes);
     my $reportObj = { "objects_created"=>[{'ref'=>"$workspace/$output_id", "description"=>"Metabolism-Expression Model"}],
 		      "text_message"=>$report };
     my $reportName = "build_me_model_report";
@@ -1908,7 +2127,7 @@ sub build_me_model
 		      }]});
 
     # returning reactions temporarily for testing
-    $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4], 'reactions'=>\%reactions  };
+    $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4], 'reactions'=>{}  };
 
     #END build_me_model
     my @_bad_returns;
