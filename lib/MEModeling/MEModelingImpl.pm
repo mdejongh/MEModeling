@@ -2076,11 +2076,12 @@ sub build_me_model
     $biomass{id} = "bio_tt";
     $biomass{biomasscompounds} = \@biomasscpds;
     push @{$model->{biomasses}}, \%biomass;
-    foreach my $gene (keys %tt_genes) {
-	$gene.="_mono";
-	$gene =~ s/_//g; # remove underscores
-	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
-    }
+    # REMOVE
+#     foreach my $gene (keys %tt_genes) {
+# 	$gene.="_mono";
+# 	$gene =~ s/_//g; # remove underscores
+# 	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
+#     }
 
     # construct biomass that includes production of model reaction genes
     my %biomass = %{$model->{biomasses}->[0]};
