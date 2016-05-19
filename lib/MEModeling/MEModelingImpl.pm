@@ -767,6 +767,7 @@ sub build_me_model
 	}
 
 	$modelrxn_complexes{$modelrxn->{id}} = $complexes;
+	last if scalar keys %m_genes > 0; # REMOVE
     }
 
     # sets sigma factor 70 as default sigma factor
@@ -780,7 +781,8 @@ sub build_me_model
     foreach my $feature (@{$genome->{features}}) {
 	my $gene = $feature->{id};
 	$gene =~ s/\W/_/g;
-	next unless exists $tt_genes{$gene} || exists $m_genes{$gene};
+#	next unless exists $tt_genes{$gene} || exists $m_genes{$gene};
+	next unless exists $m_genes{$gene}; # REMOVE
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
 	my $cds = &get_dna($feature, $contigset);
