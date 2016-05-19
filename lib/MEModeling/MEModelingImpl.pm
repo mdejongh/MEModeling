@@ -767,7 +767,6 @@ sub build_me_model
 	}
 
 	$modelrxn_complexes{$modelrxn->{id}} = $complexes;
-#	last if scalar keys %m_genes > 0; # REMOVE
     }
 
     # sets sigma factor 70 as default sigma factor
@@ -781,8 +780,7 @@ sub build_me_model
     foreach my $feature (@{$genome->{features}}) {
 	my $gene = $feature->{id};
 	$gene =~ s/\W/_/g;
-#	next unless exists $tt_genes{$gene} || exists $m_genes{$gene};
-	next unless exists $m_genes{$gene}; # REMOVE
+	next unless exists $tt_genes{$gene} || exists $m_genes{$gene};
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
 	my $cds = &get_dna($feature, $contigset);
@@ -980,7 +978,7 @@ sub build_me_model
 
 	push @{$reactions{$gene}}, "$gene\_mRNA_CONV\tconvsersion of mRNA to mRNA_1 (synthetic rxn)\t1 $gene\_mRNA --> 1 $gene\_mRNA_1\tirreversible\tTranslation\n";	
 	
-	my (%trnas_for_gene, $second_last_codon, $last_codon, $last_codon_);
+	my (%trnas_for_gene, $second_last_codon, $last_codon_);
 
 	for (my $i=3; $i < (length($cds)-2); $i +=3) #code does not account for first triplet but set first aa always to be fmet;
 	{
@@ -1000,6 +998,8 @@ sub build_me_model
 		}
 		else
 		{
+		    # FIX THIS
+		    ++$trnas_for_gene{$code_tRNA{"TTA"}{trna}}; # counts the number of different type of tRNAs needed
 		    print STDERR "$gene\t$i\t$codon does not exist\n";
 		}		
 	    }
@@ -1010,12 +1010,11 @@ sub build_me_model
 	    }
 	    elsif ($i == (length($cds)-3))
 	    {
-		$last_codon=$code_tRNA{$codon}{trna};
 		$last_codon_=$codon; # keeps the last codon for each CDS - important for Translation (Release factor)
 	    }
 	}	
 
-	if (! defined $last_codon && ! defined $second_last_codon) {
+	if (! defined $last_codon_ || ! defined $second_last_codon) {
 	    print STDERR "Skipping $gene because unable to identify last two codons\n";
 	    next;
 	}
@@ -2076,12 +2075,11 @@ sub build_me_model
     $biomass{id} = "bio_tt";
     $biomass{biomasscompounds} = \@biomasscpds;
     push @{$model->{biomasses}}, \%biomass;
-    # REMOVE
-#     foreach my $gene (keys %tt_genes) {
-# 	$gene.="_mono";
-# 	$gene =~ s/_//g; # remove underscores
-# 	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
-#     }
+    foreach my $gene (keys %tt_genes) {
+	$gene.="_mono";
+	$gene =~ s/_//g; # remove underscores
+	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
+    }
 
     # construct biomass that includes production of model reaction genes
     my %biomass = %{$model->{biomasses}->[0]};
