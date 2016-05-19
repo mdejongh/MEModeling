@@ -767,7 +767,7 @@ sub build_me_model
 	}
 
 	$modelrxn_complexes{$modelrxn->{id}} = $complexes;
-	last if scalar keys %m_genes > 0; # REMOVE
+#	last if scalar keys %m_genes > 0; # REMOVE
     }
 
     # sets sigma factor 70 as default sigma factor
