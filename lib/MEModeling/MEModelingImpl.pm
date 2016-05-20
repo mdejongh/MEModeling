@@ -1798,7 +1798,7 @@ sub build_me_model
 	    if (@$complex > 1) {
 		$cname = join("_", @$complex)."_cplx";
 		$cid = $cname;
-		$cid =~ s/_//g; # remove underscores
+		$cid =~ s/_|\(|\)//g; # remove underscores
 		my %cplx_form = %template; # create cplx_FORM
 		my $formula = "C1"; # FIX THIS
 		my $charge = 0; # FIX THIS
@@ -1806,7 +1806,7 @@ sub build_me_model
 		my @reagents = ({"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${cid}_c0"});
 		foreach my $gene (@$complex) {
 		    my $gid = $gene."_mono";
-		    $gid =~ s/_//g; # remove underscores
+		    $gid =~ s/_|\(|\)//g; # remove underscores
 		    my $gformula = "C1"; # FIX THIS
 		    my $gcharge = 0; # FIX THIS
 		    push @reagents, {"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${gid}_c0"};
@@ -1820,7 +1820,7 @@ sub build_me_model
 	    else {
 		$cname = $complex->[0]."_mono";
 		$cid = $cname;
-		$cid =~ s/_//g; # remove underscores
+		$cid =~ s/_|\(|\)//g; # remove underscores
 	    }
 
 	    my $rid = $mrid;
@@ -1828,7 +1828,7 @@ sub build_me_model
 
 	    my $inact_name = $cid."_inact";
 	    my $inact_id = $inact_name;
-	    $inact_id =~ s/_//g; # remove underscores
+	    $inact_id =~ s/_|\(|\)//g; # remove underscores
 	    my $inact_formula = "C1"; # FIX THIS
 	    my $inact_charge = 0; # FIX THIS
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$inact_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$inact_formula,"id"=>$inact_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$inact_name."_c0"};
@@ -1852,7 +1852,7 @@ sub build_me_model
 		}
 		$stepAcplx_name .= "_cplx";
 		my $stepAcplx_id = $stepAcplx_name;
-		$stepAcplx_id =~ s/_//g; # remove underscores
+		$stepAcplx_id =~ s/_|\(|\)//g; # remove underscores
 		my $stepAcplx_formula = "C1"; # FIX THIS
 		my $stepAcplx_charge = 0; # FIX THIS
 		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepAcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepAcplx_formula,"id"=>$stepAcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepAcplx_name."_c0"};
@@ -1876,7 +1876,7 @@ sub build_me_model
 		}
 		$stepBcplx_name .= "_cplx";
 		my $stepBcplx_id = $stepBcplx_name;
-		$stepBcplx_id =~ s/_//g; # remove underscores
+		$stepBcplx_id =~ s/_|\(|\)//g; # remove underscores
 		my $stepBcplx_formula = "C1"; # FIX THIS
 		my $stepBcplx_charge = 0; # FIX THIS
 		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepBcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepBcplx_formula,"id"=>$stepBcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepBcplx_name."_c0"};
@@ -1920,7 +1920,7 @@ sub build_me_model
 		}
 		$stepEcplx_name .= "_cplx_R";
 		my $stepEcplx_id = $stepEcplx_name;
-		$stepEcplx_id =~ s/_//g; # remove underscores
+		$stepEcplx_id =~ s/_|\(|\)//g; # remove underscores
 		my $stepEcplx_formula = "C1"; # FIX THIS
 		my $stepEcplx_charge = 0; # FIX THIS
 		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepEcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepEcplx_formula,"id"=>$stepEcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepEcplx_name."_c0"};
@@ -1944,7 +1944,7 @@ sub build_me_model
 		}
 		$stepFcplx_name .= "_cplx_R";
 		my $stepFcplx_id = $stepFcplx_name;
-		$stepFcplx_id =~ s/_//g; # remove underscores
+		$stepFcplx_id =~ s/_|\(|\)//g; # remove underscores
 		my $stepFcplx_formula = "C1"; # FIX THIS
 		my $stepFcplx_charge = 0; # FIX THIS
 		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepFcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepFcplx_formula,"id"=>$stepFcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepFcplx_name."_c0"};
@@ -1987,7 +1987,7 @@ sub build_me_model
     # add factors and compounds and reactions to model and modify biomass
     foreach my $factor (keys %formulae) {
 	    my $id = $factor;
-	    $id =~ s/_//g; # remove underscores
+	    $id =~ s/_|\(|\)//g; # remove underscores
 	    my $name = $factor;
 	    my $charge = $formulae{$factor}{charge};
 	    my $formula = "";
@@ -1998,7 +1998,7 @@ sub build_me_model
     # handle EF-Tu-Ts since it isn't in factors.txt
     {
 	    my $id = "EF_Tu_Ts";
-	    $id =~ s/_//g; # remove underscores
+	    $id =~ s/_|\(|\)//g; # remove underscores
 	    my $name = "EF_Tu_Ts";
 	    my %ef_tu_ts = %{$formulae{"EF_Ts"}};
 	    my %ef_tu_gdp = %{$formulae{"EF_Tu_GDP"}};
@@ -2014,7 +2014,7 @@ sub build_me_model
     # handle IF2 since it isn't in factors.txt
     {
 	    my $id = "IF2";
-	    $id =~ s/_//g; # remove underscores
+	    $id =~ s/_|\(|\)//g; # remove underscores
 	    my $name = "IF2";
 	    my %if2 = %{$formulae{"IF2_GDP"}};
 	    my %gdp = ( 'C' => 10, 'H' => 13, 'N' => 5, 'O' => 11, 'P' => 2, 'charge' => -2 );
@@ -2028,7 +2028,7 @@ sub build_me_model
     # handle RNAP_70 since it isn't in factors.txt
     {
 	    my $id = "RNAP_70";
-	    $id =~ s/_//g; # remove underscores
+	    $id =~ s/_|\(|\)//g; # remove underscores
 	    my $name = "RNAP_70";
 	    my $charge = 0; # FIX THIS
 	    my $formula = "C1"; #FIX THIS
@@ -2038,7 +2038,7 @@ sub build_me_model
     # handle fmet_trna since it isn't in factors.txt
     {
 	    my $id = "fmet_tRNA";
-	    $id =~ s/_//g; # remove underscores
+	    $id =~ s/_|\(|\)//g; # remove underscores
 	    my $name = "fmet_tRNA";
 	    my %fmet_trna = %{$formulae{"fmet_tRNA_met"}};
 	    my %fmet = ( 'C' => 6, 'H' => 11, 'N' => 1, 'O' => 3, 'S' => 1, 'charge' => 0 );
@@ -2052,7 +2052,7 @@ sub build_me_model
     # need tRNAs
     foreach my $trna (keys %formula_tRNA) {
 	    my $id = $trna;
-	    $id =~ s/_//g; # remove underscores
+	    $id =~ s/_|\(|\)//g; # remove underscores
 	    my $name = $trna;
 	    my $charge = $formula_tRNA{$trna}{charge};
 	    my $formula = "";
@@ -2063,7 +2063,7 @@ sub build_me_model
     foreach my $gene (keys %compounds) {
 	foreach my $cpd (@{$compounds{$gene}}) {
 	    my ($id, $name, $formula, $charge, undef) = split "\t", $cpd;
-	    $id =~ s/_//g; # remove underscores
+	    $id =~ s/_|\(|\)//g; # remove underscores
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
 	}
     }
@@ -2071,7 +2071,7 @@ sub build_me_model
     foreach my $gene (keys %reactions) {
 	foreach my $rxn (@{$reactions{$gene}}) {
 	    my ($id, $name, $formula, $rev, undef) = split "\t", $rxn;
-	    $id =~ s/_//g; # remove underscores
+	    $id =~ s/_|\(|\)//g; # remove underscores
 	    $id.="_c0";
 	    $rev = ($rev eq "irreversible") ? ">" : "=";
 	    my ($substrates, $products) = split "-->", $formula;
@@ -2080,14 +2080,14 @@ sub build_me_model
 		my $coef = $1;
 		my $cid = $2;
 		print STDERR "Coefficient is $coef for $cid in $rxn\n" if -1.0*(int $coef) == 0;
-		$cid =~ s/_//g; # remove underscores
+		$cid =~ s/_|\(|\)//g; # remove underscores
 		push @reagents, {"coefficient"=> -1.0*int($coef),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
 	    while ($products =~ /(\d+)\s(\S+)/g) {
 		my $coef = $1;
 		my $cid = $2;
 		print STDERR "Coefficient is $coef for $cid in $rxn\n" if -1.0*(int $coef) == 0;
-		$cid =~ s/_//g; # remove underscores
+		$cid =~ s/_|\(|\)//g; # remove underscores
 		push @reagents, {"coefficient"=> 1.0*int($coef),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
 	    
@@ -2103,7 +2103,7 @@ sub build_me_model
     push @{$model->{biomasses}}, \%biomass;
     foreach my $gene (keys %tt_genes) {
 	$gene.="_mono";
-	$gene =~ s/_//g; # remove underscores
+	$gene =~ s/_|\(|\)//g; # remove underscores
 	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
     }
 
@@ -2115,7 +2115,7 @@ sub build_me_model
     push @{$model->{biomasses}}, \%biomass;
     foreach my $gene (keys %m_genes) {
 	$gene.="_mono";
-	$gene =~ s/_//g; # remove underscores
+	$gene =~ s/_|\(|\)//g; # remove underscores
 	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
     }
 
