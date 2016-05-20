@@ -423,7 +423,7 @@ sub build_me_model
 	else {
 	    $fr2gene{$fr} = $gene;
 	}
-	if ($fr =~ /^tRNA\-(\w+)\-\w{3}$/) {
+	if ($fr =~ /^tRNA\-.*\-[ACGT]{3}$/) {
 	    $fr =~ s/-/_/g;
 	    push @{$trna_seqs{$fr}}, uc $dna;
 	}
@@ -566,7 +566,7 @@ sub build_me_model
     # now we can calculate the EF-Tu.GTP.trnas
     foreach my $trna (keys %formula_tRNA) {
 	my %formula = %{$formulae{"EF_Tu_GTP"}};
-	if ($trna =~ /^tRNA_(\w+)_\w{3}$/) {
+	if ($trna =~ /^tRNA_(.*)_([ACGT]{3})$/) {
 	    my $abbrev = $aa_abbrev{$1};
 	    map { $formula{$_} += $formula_tRNA{$trna}{$_} } keys %{$formula_tRNA{$trna}};
 	    map { $formula{$_} += $infos{$abbrev}{$_} } keys %{$infos{$abbrev}};
@@ -578,7 +578,7 @@ sub build_me_model
     my $trna_met_count = 0;
     my %fmet_trna_met_formula;
     foreach my $trna (keys %formula_tRNA) {
-	if ($trna =~ /^tRNA_(\w+)_\w{3}$/ && $aa_abbrev{$1} eq "M") {
+	if ($trna =~ /^tRNA_(.*)_([ACGT]{3})$/ && $aa_abbrev{$1} eq "M") {
 	    map { $fmet_trna_met_formula{$_} += $formula_tRNA{$trna}{$_} } keys %{$formula_tRNA{$trna}};
 	    map { $fmet_trna_met_formula{$_} += $infos{"M"}{$_} } keys %{$infos{"M"}};
 	    $trna_met_count++;
@@ -671,6 +671,7 @@ sub build_me_model
     # try Gary's rules
     my %cm = ( "A" => "T", "T" => "A", "G" => "C", "C" => "G" );
     my %default_codon_assignment; # just in case we leave a codon unassigned after applying Gary's rules
+    my $sec_trna; # in case we identify the seleno-cysteine trna
 
     foreach my $fr (keys %formula_tRNA) {
 	if ($fr =~ /^tRNA_(.*)_([ACGT]{3})$/) {
@@ -689,8 +690,12 @@ sub build_me_model
 		elsif ($aa_name eq "Ile" && $anti_codon eq "CAT") {
 		    $gary_codons{"ATA"} = 1;
 		}
-		elsif ($aa_name eq "SeC(p)" && $anti_codon eq "TCA") {
-		    $gary_codons{"AGT"} = 1;
+		elsif ($aa_name eq "SeC(p)") {
+		    print STDERR "Found selenocysteine tRNA: $fr\n";
+		    $sec_trna = $fr;
+		    if ($anti_codon eq "TCA") {
+			$gary_codons{"AGT"} = 1;
+		    }
 		}
 		elsif ($anti_codon =~ /^A(.)(.)/) {
 		    $gary_codons{$cm{$2}.$cm{$1}."T"} = 1;
@@ -773,7 +778,7 @@ sub build_me_model
     my $rnap='RNAP_70';
     my $sigm='RpoD_mono';
 
-    my (%reactions, %compounds);
+    my (%reactions, %compounds, %test_genes);
 
     # create TT reactions and compounds for features that are involved in TT
     # or are associated with modelreactions
@@ -992,15 +997,27 @@ sub build_me_model
 		    $codon =substr($cds,$i,3);
 		}
 
+		my $found_trna = 0;
 		if (exists $code_tRNA{$codon}{trna})
 		{	
 		    ++$trnas_for_gene{$code_tRNA{$codon}{trna}}; # counts the number of different type of tRNAs needed
+		    $found_trna = 1;
 		}
-		else
+		elsif ($codon eq "TGA") {
+		    print STDERR "Detected TGA in $gene\n";
+		    if (defined $sec_trna) {
+			print STDERR "\t interpreting as selenocysteine\n";
+			++$trnas_for_gene{$sec_trna}; # FIX THIS - aren't including machinery for seleno-cysteine-trna: http://biocyc.org/ECOLI/NEW-IMAGE?type=PATHWAY&object=PWY0-901
+			$test_genes{$gene} = 1;
+			$found_trna = 1;
+		    }
+		}
+
+		if ($found_trna == 0)
 		{
 		    # FIX THIS
 		    ++$trnas_for_gene{$code_tRNA{"TTA"}{trna}}; # counts the number of different type of tRNAs needed
-		    print STDERR "$gene\t$i\t$codon does not exist\n";
+		    print STDERR "$gene\t$i\t$codon cannot be matched to a tRNA ... defaulting to TTA\n";
 		}		
 	    }
 
@@ -1202,7 +1219,7 @@ sub build_me_model
 		{
 		    if ($found == 0)
 		    {
-			if ($trna =~ /^tRNA_(\w{3})_/) {
+			if ($trna =~ /^tRNA_(.*)_([ACGT]{3})$/) {
 			    my @codons = keys %{$genetic_code{$assigned_code}{$1}};
 			    $trna2 = $factor.'_'.$trna;
 			    $found = 1;
@@ -1727,7 +1744,7 @@ sub build_me_model
     }
 
     foreach my $trna (keys %list_tRNA) {
-	if ($trna =~ /^tRNA_(\w{3}(\(p\))?)_\w{3}/) {
+	if ($trna =~ /^tRNA_(.*)_([ACGT]{3})$/) {
 	    my $aa = $1;
 	    my @codons = keys %{$genetic_code{$assigned_code}{$aa}};
 	    next if @codons == 0;
@@ -1735,6 +1752,15 @@ sub build_me_model
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GTP}}) {
 		push @{$reactions{"Recycling"}}, "EF_Tu_cycle_3_$trna\tCharging EF-Tu with $trna and GTP and AA\t1 $factor + 1 $trna + 1 $cpd_map{$aa} --> 1 EF_Tu_GTP_$trna\tirreversible\tRecycling\n";
 	    }
+	}
+    }
+    
+    if (defined $sec_trna) {
+	# special handling for selenocysteine - FIX THIS
+	foreach my $factor (sort keys %{$factors{TranslationEF_TU_GTP}}) {
+	    my $sec_rxn = "EF_Tu_cycle_3_${sec_trna}\tCharging EF-Tu with $sec_trna and GTP and L-Serine\t1 $factor + 1 $sec_trna + 1 $cpd_map{'Ser'} --> 1 EF_Tu_GTP_${sec_trna}\tirreversible\tRecycling\n";
+	    print STDERR $sec_rxn;
+	    push @{$reactions{"Recycling"}}, $sec_rxn;
 	}
     }
 
@@ -2128,7 +2154,8 @@ sub build_me_model
 		      }]});
 
     # returning reactions temporarily for testing
-    $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4], 'reactions'=>{}  };
+    my %test_reactions = map { $_ => $reactions{$_} } (keys %test_genes, "Recycling");
+    $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4], 'reactions'=>{%test_reactions}  };
 
     #END build_me_model
     my @_bad_returns;
