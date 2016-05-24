@@ -751,7 +751,7 @@ sub build_me_model
 
     foreach my $modelrxn (@{$model->{modelreactions}}) {
 	my $proteins = $modelrxn->{modelReactionProteins};
-	next if (@$proteins == 0);
+	next if (@$proteins == 0 || (@$proteins == 1 && @{$proteins->[0]->{modelReactionProteinSubunits}} == 0));
 	print STDERR "Processing model reaction proteins for ", $modelrxn->{id}, "\n";
 	# assemble the catalyzing protein complexes
 	my $complexes; # list of protein complexes that are ORed
