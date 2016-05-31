@@ -1014,32 +1014,34 @@ sub build_me_model
 	{
 	    my $codon =substr($cds,$i,3);
 
-	    if($fr =~ /programmed frameshift\-containing/ && $codon eq 'TGA')
-	    {
-		$i=$i+1;
-		$codon =substr($cds,$i,3);
-	    }
+	    if ($i < (length($cds)-2)) { # in case of frameshift
+		if($fr =~ /programmed frameshift\-containing/ && $codon eq 'TGA')
+		{
+		    $i=$i+1;
+		    $codon =substr($cds,$i,3);
+		}
 
-	    my $found_trna = 0;
-	    if (exists $code_tRNA{$codon}{trna})
-	    {	
-		++$trnas_for_gene{$code_tRNA{$codon}{trna}}; # counts the number of different type of tRNAs needed
-		$found_trna = 1;
-	    }
-	    elsif ($codon eq "TGA") {
-		if (defined $sec_trna && $i != (length($cds)-3)) {
-		    print STDERR "Detected TGA in middle of $gene, interpreting as selenocysteine\n";
-		    ++$trnas_for_gene{$sec_trna}; # FIX THIS - aren't including machinery for seleno-cysteine-trna: http://biocyc.org/ECOLI/NEW-IMAGE?type=PATHWAY&object=PWY0-901
+		my $found_trna = 0;
+		if (exists $code_tRNA{$codon}{trna})
+		{	
+		    ++$trnas_for_gene{$code_tRNA{$codon}{trna}}; # counts the number of different type of tRNAs needed
 		    $found_trna = 1;
 		}
-	    }
+		elsif ($codon eq "TGA") {
+		    if (defined $sec_trna && $i != (length($cds)-3)) {
+			print STDERR "Detected TGA in middle of $gene, interpreting as selenocysteine\n";
+			++$trnas_for_gene{$sec_trna}; # FIX THIS - aren't including machinery for seleno-cysteine-trna: http://biocyc.org/ECOLI/NEW-IMAGE?type=PATHWAY&object=PWY0-901
+			$found_trna = 1;
+		    }
+		}
 
-	    if ($found_trna == 0 && ! exists $LastCodon{$codon}) {
-		# FIX THIS
-		print STDERR "$gene\t$i\t$codon cannot be matched to a tRNA ... defaulting to $last_chance_codon [$code_tRNA{$last_chance_codon}{trna}]\n";
-		++$trnas_for_gene{$code_tRNA{$last_chance_codon}{trna}}; # counts the number of different type of tRNAs needed
-		$codon = $last_chance_codon;
-	    }		
+		if ($found_trna == 0 && ! exists $LastCodon{$codon}) {
+		    # FIX THIS
+		    print STDERR "$gene\t$i\t$codon cannot be matched to a tRNA ... defaulting to $last_chance_codon [$code_tRNA{$last_chance_codon}{trna}]\n";
+		    ++$trnas_for_gene{$code_tRNA{$last_chance_codon}{trna}}; # counts the number of different type of tRNAs needed
+		    $codon = $last_chance_codon;
+		}		
+	    }
 
 	    if ($i == (length($cds)-6))
 	    {
