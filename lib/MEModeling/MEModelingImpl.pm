@@ -1014,7 +1014,7 @@ sub build_me_model
 	{
 	    my $codon =substr($cds,$i,3);
 
-	    if($fr =~ /programmed frameshift\-containing/ && $codon eq 'TGA' && $i != (length($cds)-3)) {
+	    if($fr =~ /programmed frameshift\-containing/ && $codon eq 'TGA' && $i != (length($cds)-3))
 	    {
 		$i=$i+1;
 		$codon =substr($cds,$i,3);
