@@ -735,36 +735,19 @@ sub build_me_model
     }
 
     # now make sure that there all codons are assigned
-    my @unassigned_codons;
-    my $last_chance_codon;
     foreach my $aa_name (keys %{$genetic_code{$assigned_code}}) {
 	foreach my $codon (keys %{$genetic_code{$assigned_code}{$aa_name}}) {
 	    if (! exists $code_tRNA{$codon}) {
 		if (exists $default_codon_assignment{$codon}) {
-		    print STDERR "\t assigning $default_codon_assignment{$codon}{trna} for '$aa_name' and '$codon'\n";
+		    print STDERR "\t assigning $default_codon_assignment{$codon}{trna}\n";
 		    $code_tRNA{$codon}{trna} = $default_codon_assignment{$codon}{trna};
 		    $code_tRNA{$codon}{aa} = $default_codon_assignment{$codon}{aa};
 		}
 		else {
-		    print STDERR "No tRNA assignment for codon $codon [$aa_name] and NO DEFAULT ASSIGNMENT!\n";
-		    push @unassigned_codons, $codon;
+		    print STDERR "No tRNA assignment for codon $codon and NO DEFAULT ASSIGNMENT!\n";
 		}
 	    }
-	    if (exists $code_tRNA{$codon}) {
-		$last_chance_codon = $codon;
-	    }
 	}
-    }
-
-    # assign a tRNA or else things break
-    if (! defined $last_chance_codon) {
-	my $msg = "Genome has no valid tRNA annotations; may need to be reannotated";
-	Bio::KBase::Exceptions::KBaseException->throw(error => $msg,
-							       method_name => 'build_me_model');
-    }
-    foreach my $codon (@unassigned_codons) {
-	print STDERR "Assigning $code_tRNA{$last_chance_codon}{trna} for $codon\n";
-	$code_tRNA{$codon} = $code_tRNA{$last_chance_codon};
     }
 
     # process the model reactions to determine which genes are associated with them;
@@ -772,9 +755,9 @@ sub build_me_model
     my (%modelrxn_complexes, %m_genes);
 
     foreach my $modelrxn (@{$model->{modelreactions}}) {
-	my $proteins = $modelrxn->{modelReactionProteins};
-	next if ++$count < $rxn_start;
+	next if $count++ < $rxn_start;
 	last if $count >= ($rxn_start + $num_rxns);
+	my $proteins = $modelrxn->{modelReactionProteins};
 	next if (@$proteins == 0 || (@$proteins == 1 && @{$proteins->[0]->{modelReactionProteinSubunits}} == 0));
 	print STDERR "Processing model reaction proteins for ", $modelrxn->{id}, "\n";
 	# assemble the catalyzing protein complexes
@@ -810,7 +793,7 @@ sub build_me_model
 	my $gene = $feature->{id};
 	$gene =~ s/\W/_/g;
 	next unless exists $tt_genes{$gene} || exists $m_genes{$gene};
-	print STDERR "Creating TT reactions for $gene\n";
+	$test_genes{$gene} = 1;
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
 	my $cds = &get_dna($feature, $contigset);
@@ -1014,32 +997,36 @@ sub build_me_model
 	{
 	    my $codon =substr($cds,$i,3);
 
-	    if($fr =~ /programmed frameshift\-containing/ && $codon eq 'TGA')
-	    {
-		$i=$i+1;
-		$codon =substr($cds,$i,3);
-	    }
+	    if ($i < (length($cds)-3)) # MDJ: changed from -2 to -3 so we don't try to code an AA for the stop codon
+	    {				
+		if($fr =~ /programmed frameshift\-containing/ && $codon eq 'TGA')
+		{
+		    $i=$i+1;
+		    $codon =substr($cds,$i,3);
+		}
 
-	    my $found_trna = 0;
-	    if (exists $code_tRNA{$codon}{trna})
-	    {	
-		++$trnas_for_gene{$code_tRNA{$codon}{trna}}; # counts the number of different type of tRNAs needed
-		$found_trna = 1;
-	    }
-	    elsif ($codon eq "TGA") {
-		if (defined $sec_trna && $i != (length($cds)-3)) {
-		    print STDERR "Detected TGA in middle of $gene, interpreting as selenocysteine\n";
-		    ++$trnas_for_gene{$sec_trna}; # FIX THIS - aren't including machinery for seleno-cysteine-trna: http://biocyc.org/ECOLI/NEW-IMAGE?type=PATHWAY&object=PWY0-901
+		my $found_trna = 0;
+		if (exists $code_tRNA{$codon}{trna})
+		{	
+		    ++$trnas_for_gene{$code_tRNA{$codon}{trna}}; # counts the number of different type of tRNAs needed
 		    $found_trna = 1;
 		}
-	    }
+		elsif ($codon eq "TGA") {
+		    print STDERR "Detected TGA in $gene\n";
+		    if (defined $sec_trna) {
+			print STDERR "\t interpreting as selenocysteine\n";
+			++$trnas_for_gene{$sec_trna}; # FIX THIS - aren't including machinery for seleno-cysteine-trna: http://biocyc.org/ECOLI/NEW-IMAGE?type=PATHWAY&object=PWY0-901
+			$found_trna = 1;
+		    }
+		}
 
-	    if ($found_trna == 0 && ! exists $LastCodon{$codon}) {
-		# FIX THIS
-		print STDERR "$gene\t$i\t$codon cannot be matched to a tRNA ... defaulting to $last_chance_codon [$code_tRNA{$last_chance_codon}{trna}]\n";
-		++$trnas_for_gene{$code_tRNA{$last_chance_codon}{trna}}; # counts the number of different type of tRNAs needed
-		$codon = $last_chance_codon;
-	    }		
+		if ($found_trna == 0)
+		{
+		    # FIX THIS
+		    ++$trnas_for_gene{$code_tRNA{"TTA"}{trna}}; # counts the number of different type of tRNAs needed
+		    print STDERR "$gene\t$i\t$codon cannot be matched to a tRNA ... defaulting to TTA\n";
+		}		
+	    }
 
 	    if ($i == (length($cds)-6))
 	    {
@@ -1057,22 +1044,13 @@ sub build_me_model
 	}
 
 	my $sum_aa = (length $aa_seq{$gene})-1; # subtracting one because ignoring first codon (fmet_tRNA or something like that)
-
-	# check point
-	my $num_trnas = 0;
-	map { $num_trnas += $trnas_for_gene{$_} } (keys %trnas_for_gene);
-	if ($sum_aa != $num_trnas) {
-	    print STDERR "WARNING: sum_aa is $sum_aa, num_trnas is $num_trnas; adjusting sum_aa\n";
-	    $sum_aa = $num_trnas;
-	}
-
 	my ${fmet_tRNA}=1;
 	my ${Mg2}=5*$sum_aa;
 	my ${h2o}=2*$sum_aa-1;
 	my ${gdp}=2*$sum_aa;
 	my ${pi}=2*$sum_aa;
 	my ${h}=2*$sum_aa+1;
-	my $number_rib=int(($sum_aa+1)/17) || 1;
+	my $number_rib=int(($sum_aa+1)/17);
 	
 	my %aa_count = &aa_count($aa_seq{$gene}, \%infos);
 
@@ -1118,7 +1096,6 @@ sub build_me_model
 	push @{$compounds{$gene}}, "$gene\_mRNA_2_degr\tmRNA $gene degradation complex ($NameFactors)\tC${comp_degr_C}H${comp_degr_H}N${comp_degr_N}O${comp_degr_O}S${comp_degr_S}P${comp_degr_P}Mg${comp_degr_Mg}Zn${comp_degr_Zn}Fe${comp_degr_Fe}\t${comp_degr_charge}\tmRNA degradation\t, ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
 
 	my %as = map { $_ => 1 } (1, int($number_rib/2), $number_rib);
-	delete $as{0};
 
 	foreach my $a (sort keys %as)
 	{
@@ -1789,7 +1766,6 @@ sub build_me_model
 	# special handling for selenocysteine - FIX THIS
 	foreach my $factor (sort keys %{$factors{TranslationEF_TU_GTP}}) {
 	    my $sec_rxn = "EF_Tu_cycle_3_${sec_trna}\tCharging EF-Tu with $sec_trna and GTP and L-Serine\t1 $factor + 1 $sec_trna + 1 $cpd_map{'Ser'} --> 1 EF_Tu_GTP_${sec_trna}\tirreversible\tRecycling\n";
-	    print STDERR $sec_rxn;
 	    push @{$reactions{"Recycling"}}, $sec_rxn;
 	}
     }
@@ -1818,7 +1794,7 @@ sub build_me_model
 	    push @$newmodelreactions, $modelrxn;
 	    next;
 	}
-#	print STDERR "Reformulating model reaction ", $mrid, "\n";
+	print STDERR "Reformulating model reaction ", $mrid, "\n";
 	foreach my $complex (@{$modelrxn_complexes{$mrid}}) {
 	    my %template = map { $_ => $modelrxn->{$_} } qw/probability gapfill_data protons modelcompartment_ref aliases complex_ref/; # all reactions based off original
 	    $template{reaction_ref} = "~/template/biochemistry/reactions/id/rxn00000";
@@ -2120,45 +2096,16 @@ sub build_me_model
 		$cid =~ s/_|\(|\)//g; # remove underscores
 		push @reagents, {"coefficient"=> 1.0*int($coef),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
-	    
-	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"~/template/biochemistry/reactions/id/rxn00000","modelReactionProteins"=>[]};
 	}
     }
 
-    # construct biomass that includes production of tt factors
-    my %biomass = %{$model->{biomasses}->[0]};
-    my @biomasscpds = @{$model->{biomasses}->[0]->{biomasscompounds}};
-    $biomass{id} = "bio_tt";
-    $biomass{biomasscompounds} = \@biomasscpds;
-    push @{$model->{biomasses}}, \%biomass;
-    foreach my $gene (keys %tt_genes) {
+    # adjust biomass to include production of model reaction genes and production of tt factors
+    my $biomass = $model->{biomasses}->[0];
+    my $biomasscpds = $biomass->{biomasscompounds};
+    foreach my $gene (keys %m_genes, keys %tt_genes) {
 	$gene.="_mono";
 	$gene =~ s/_|\(|\)//g; # remove underscores
-	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
-    }
-
-    # construct biomass that includes production of model reaction genes
-    my %biomass = %{$model->{biomasses}->[0]};
-    my @biomasscpds = @{$model->{biomasses}->[0]->{biomasscompounds}};
-    $biomass{id} = "bio_mr";
-    $biomass{biomasscompounds} = \@biomasscpds;
-    push @{$model->{biomasses}}, \%biomass;
-    foreach my $gene (keys %m_genes) {
-	$gene.="_mono";
-	$gene =~ s/_|\(|\)//g; # remove underscores
-	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
-    }
-
-    # for debugging: construct biomass that includes production of gene - for each gene
-    foreach my $gene (keys %m_genes) {
-	my %biomass = %{$model->{biomasses}->[0]};
-	my @biomasscpds = @{$model->{biomasses}->[0]->{biomasscompounds}};
-	$biomass{id} = "bio_mr_$gene";
-	$biomass{biomasscompounds} = \@biomasscpds;
-	push @{$model->{biomasses}}, \%biomass;
-	$gene.="_mono";
-	$gene =~ s/_|\(|\)//g; # remove underscores
-	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
+	push @$biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
     }
 
     # finish overwriting source model JSON
@@ -2196,7 +2143,7 @@ sub build_me_model
 		      }]});
 
     # returning reactions temporarily for testing
-    my %test_reactions = map { $_ => $reactions{$_} } (keys %m_genes, "Recycling");
+    my %test_reactions = map { $_ => $reactions{$_} } (keys %test_genes, "Recycling");
     $return = { 'report_name'=>$reportName, 'report_ref', $metadata->[0]->[6]."/".$metadata->[0]->[0]."/".$metadata->[0]->[4], 'reactions'=>{%test_reactions}  };
 
     #END build_me_model
