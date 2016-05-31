@@ -776,7 +776,7 @@ sub build_me_model
 	next if ++$count < $rxn_start;
 	last if $count >= ($rxn_start + $num_rxns);
 	next if (@$proteins == 0 || (@$proteins == 1 && @{$proteins->[0]->{modelReactionProteinSubunits}} == 0));
-	print STDERR "Processing model reaction proteins for ", $modelrxn->{id}, "\n";
+#	print STDERR "Processing model reaction proteins for ", $modelrxn->{id}, "\n";
 	# assemble the catalyzing protein complexes
 	my $complexes; # list of protein complexes that are ORed
 	foreach my $protein (@$proteins) {
@@ -810,7 +810,7 @@ sub build_me_model
 	my $gene = $feature->{id};
 	$gene =~ s/\W/_/g;
 	next unless exists $tt_genes{$gene} || exists $m_genes{$gene};
-	print STDERR "Creating TT reactions for $gene\n";
+#	print STDERR "Creating TT reactions for $gene\n";
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
 	my $cds = &get_dna($feature, $contigset);
