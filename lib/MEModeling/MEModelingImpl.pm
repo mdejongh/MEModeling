@@ -2151,6 +2151,15 @@ sub build_me_model
 	}
     }
 
+    # remove dna, rna and protein synthesis from biomass
+    my @trimmed_biomasscpds;
+    foreach my $cpd (@{$model->{biomasses}->[0]->{biomasscompounds}}) {
+	my $cpdid = pop([split "/", $cpd->{modelcompound_ref}]);
+	next if $cpdid =~ /cpd17041/ || $cpdid =~ /cpd17042/ || $cpdid =~ /cpd17043/;
+	push @trimmed_biomasscpds, $cpd;
+    }
+    $model->{biomasses}->[0]->{biomasscompounds} = \@trimmed_biomasscpds;
+
     # construct biomass that includes production of tt factors
     my %biomass = %{$model->{biomasses}->[0]};
     my @biomasscpds = @{$model->{biomasses}->[0]->{biomasscompounds}};
