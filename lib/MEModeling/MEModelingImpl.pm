@@ -539,7 +539,7 @@ sub build_me_model
 	    $tt_genes{$fr2gene{$fr}} = $fnameless;
 	}
 	if ($fr ne "") {
-	    $factors{$category}{$fname} = $fr2gene{$fr}.$extra;
+	    $factors{$category}{$fname} = $fr2gene{$fr};
 	}
 	else {
 	    $factors{$category}{$fname} = $fname;
@@ -674,15 +674,14 @@ sub build_me_model
     $LastCodon{"TAA"}=1;
     $LastCodon{"TAG"}=1;
     my $rf1_mono = $factors{LastCodonsFactors}{"RF1_mono"};
-    delete $factors{LastCodonsFactors}{"RF1_mono"};
     my $rf2_mono = $factors{LastCodonsFactors}{"RF2_mono"};
-    delete $factors{LastCodonsFactors}{"RF2_mono"};
-    $factors{LastCodonsFactors}{"RF1_mono"}{"TAA"}=$rf1_mono;
-    $factors{LastCodonsFactors}{"RF1_mono"}{"TAG"}=$rf1_mono;
-    $factors{LastCodonsFactors}{"RF2_mono"}{"TAA"}=$rf2_mono;
+    my %factors_LastCodonsFactors;
+    $factors_LastCodonsFactors{"RF1_mono"}{"TAA"}=$rf1_mono;
+    $factors_LastCodonsFactors{"RF1_mono"}{"TAG"}=$rf1_mono;
+    $factors_LastCodonsFactors{"RF2_mono"}{"TAA"}=$rf2_mono;
 
     if ($assigned_code == '11') {
-	$factors{LastCodonsFactors}{"RF2_mono"}{"TGA"}=$rf2_mono;
+	$factors_LastCodonsFactors{"RF2_mono"}{"TGA"}=$rf2_mono;
 	$LastCodon{"TGA"}=1;
     }
 
@@ -797,7 +796,7 @@ sub build_me_model
 	next if ++$count < $rxn_start;
 	last if $count >= ($rxn_start + $num_rxns);
 	next if (@$proteins == 0 || (@$proteins == 1 && @{$proteins->[0]->{modelReactionProteinSubunits}} == 0));
-	print STDERR "Processing model reaction proteins for ", $mrid, "\n";
+	# print STDERR "Processing model reaction proteins for ", $mrid, "\n";
 	# assemble the catalyzing protein complexes
 	my $complexes; # list of protein complexes that are ORed
 	foreach my $protein (@$proteins) {
@@ -831,7 +830,7 @@ sub build_me_model
 	my $gene = $feature->{id};
 	$gene =~ s/\W/_/g;
 	next unless exists $tt_genes{$gene} || exists $m_genes{$gene};
-	print STDERR "Creating TT reactions for $gene\n";
+	# print STDERR "Creating TT reactions for $gene\n";
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
 	my $cds = &get_dna($feature, $contigset);
@@ -935,11 +934,11 @@ sub build_me_model
 	    my $rxn2 = "tscr_elo_term_$gene\_rho_dep\tTranscription elongation and RHO DEPENDENT termination of $gene\t1 transcr_elo_$gene\_cplx + 3 $cpd_map{h2o} + ".($cdsA-$firstA+3)." $cpd_map{atp} + ".($cdsC-$firstC)." $cpd_map{ctp} + ".($cdsG-$firstG)." $cpd_map{gtp} + ".($cdsU-$firstU)." $cpd_map{utp} --> 1 $gene\_DNA_neu + 1 $gene\_mRNA + ".(($cdsA-$firstA)+($cdsC-$firstC)+($cdsG-$firstG)+($cdsU-$firstU))." $cpd_map{ppi} ";
 	    foreach my $factor (sort keys %{$factors{RhoDependentTranscriptionTerminationCDS}})
 	    {
-		$rxn2 .= "+ 1 $factor ";
+		$rxn2 .= "+ 1 ${factor}_inact ";
 	    }		
 	    foreach my $factor (sort keys %{$factors{RNAP}})
 	    {
-		$rxn2 .= "+ 1 $factor ";
+		$rxn2 .= "+ 1 ${factor} ";
 	    }
 	    $rxn2 .= "+ 3 $cpd_map{adp} + 3 $cpd_map{pi} + 3 $cpd_map{h}\tirreversible\tTranscription\t".(($cdsA+$cdsC+$cdsG+$cdsU)/45)." (45nt/s) to ".(($cdsA+$cdsC+$cdsG+$cdsU)/40)." (40nt/s) 1/s\n";
 	    push @{$reactions{$gene}}, $rxn2;
@@ -1003,11 +1002,11 @@ sub build_me_model
 
 	    foreach my $factor (sort keys %{$factors{TranscriptionTerminationRNA}})
 	    {					
-		$rxn4 .= "+ 1 $factor ";
+		$rxn4 .= "+ 1 ${factor}_inact ";
 	    }
 	    foreach my $factor (sort keys %{$factors{RNAP}})
 	    {
-		$rxn4 .= "+ 1 $factor ";
+		$rxn4 .= "+ 1 ${factor}_inact ";
 	    }
 
 	    $rxn4 .= "+ 3 $cpd_map{adp} + 3 $cpd_map{pi} + 3 $cpd_map{h}\tirreversible\tTranscription\t".((${cdsA}+${cdsC}+${cdsG}+${cdsU})/90)." (90nt/s) to ".((${cdsA}+${cdsC}+${cdsG}+${cdsU})/80)." (80nt/s) 1/s\n";
@@ -1027,7 +1026,7 @@ sub build_me_model
 	my ${cds_rna_P}=(${cdsG} + ${cdsC}+${cdsU}+${cdsA})+2;
 	my ${cds_rna_charge}=(${cdsG} + ${cdsC}+${cdsU}+${cdsA})*(-1)-3;
 
-	push @{$reactions{$gene}}, "$gene\_mRNA_CONV\tconvsersion of mRNA to mRNA_1 (synthetic rxn)\t1 $gene\_mRNA --> 1 $gene\_mRNA_1\tirreversible\tTranslation\n";	
+	push @{$reactions{$gene}}, "$gene\_mRNA_CONV\tconversion of mRNA to mRNA_1 (synthetic rxn)\t1 $gene\_mRNA --> 1 $gene\_mRNA_1\tirreversible\tTranslation\n";	
 	
 	my (%trnas_for_gene, $second_last_codon, $last_codon_);
 
@@ -1153,7 +1152,7 @@ sub build_me_model
 	    $rxn5 .= "+ $a $cpd_map{h2o} --> 1 rib_ini_$gene\_$a ";
 	    foreach my $factor (sort keys %{$factors{TranslationIniOut}})
 	    {
-		$rxn5 .= "+ $a $factor ";
+		$rxn5 .= "+ $a ${factor}_inact ";
 	    }		
 	    $rxn5 .= "+ $a $cpd_map{pi} + $a $cpd_map{h}\tirreversible\tTranslation\n";
 	    push @{$reactions{$gene}}, $rxn5;
@@ -1414,11 +1413,11 @@ sub build_me_model
 	    my $rxn7 = "tl_elo_$gene\_$a\_rib2\tTranslation elongation 2 $gene $a ribosome(s)\t1 rib_70_elo1_$gene\_$a\_cplx + ".(((${sum_aa}-1)*$a))." $cpd_map{h2o} --> 1 rib_70_elo2_$gene\_$a\_cplx + $a fmet_tRNA + ".(${Mg2}*$a)." $cpd_map{mg2} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{pi} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{h} ";
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 	    {
-		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." $factor ";
+		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." ${factor}_inact ";
 	    }
 	    foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 	    {
-		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." $factor ";
+		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." ${factor}_inact ";
 	    }
 	    
 	    foreach my $trna (keys %list_tRNA)
@@ -1449,10 +1448,10 @@ sub build_me_model
 	    my $rf = '';
 	    my $CountRF = 0;
 
-	    foreach my $factor (sort keys %{$factors{LastCodonsFactors}})
+	    foreach my $factor (sort keys %factors_LastCodonsFactors)
 	    {
 		# KEEP TRACK OF LAST CODON USED
-		if (exists $factors{LastCodonsFactors}{$factor}{$last_codon_})
+		if (exists $factors_LastCodonsFactors{$factor}{$last_codon_})
 		{
 		    if ($CountRF == 0)
 		    {
@@ -1498,22 +1497,22 @@ sub build_me_model
 	    #+ $a rib_70 
 	    foreach my $factor (sort keys %{$factors{TranslationElo2}})
 	    {
-		$rxn9 .= "+ $a $factor ";
+		$rxn9 .= "+ $a ${factor}_inact ";
 	    }				
 	    #+ $a EF-Tu.GDP
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 	    {
-		$rxn9 .= "+ $a $factor ";
+		$rxn9 .= "+ $a ${factor}_inact ";
 	    }				
 	    #+ $a EF-G.GDP
 	    foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 	    {
-		$rxn9 .= "+ $a $factor ";
+		$rxn9 .= "+ $a ${factor}_inact ";
 	    }				
 	    #+ $a RF3_mono.GDP + $a Rrf_mono  
 	    foreach my $factor (sort keys %{$factors{TranslationTerm}})
 	    {
-		$rxn9 .= "+ $a $factor ";
+		$rxn9 .= "+ $a ${factor}_inact ";
 	    }
 	    $rxn9 .= "+ $a ";
 	    if (defined ${second_last_codon})	
@@ -1539,22 +1538,22 @@ sub build_me_model
 		#+ $a rib_70 
 		foreach my $factor (sort keys %{$factors{TranslationElo2}})
 		{
-		    $rxn22 .= "+ $a $factor ";
+		    $rxn22 .= "+ $a ${factor}_inact ";
 		}				
 		#+ $a EF-Tu.GDP
 		foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 		{
-		    $rxn22 .= "+ $a $factor ";
+		    $rxn22 .= "+ $a ${factor}_inact ";
 		}				
 		#+ $a EF-G.GDP
 		foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 		{
-		    $rxn22 .= "+ $a $factor ";
+		    $rxn22 .= "+ $a ${factor}_inact ";
 		}				
 		#+ $a RF3_mono.GDP + $a Rrf_mono  
 		foreach my $factor (sort keys %{$factors{TranslationTerm}})
 		{
-		    $rxn22 .= "+ $a $factor ";
+		    $rxn22 .= "+ $a ${factor}_inact ";
 		}					
 		$rxn22 .= "+ $a ";
 		my $trna=${second_last_codon};
@@ -1673,12 +1672,12 @@ sub build_me_model
 	{		
 	    if ($cnt == 0)
 	    {
-		$rxn44 .= "1 $factor ";
+		$rxn44 .= "1 ${factor}_inact ";
 		$cnt +=1;
 	    }
 	    else
 	    {
-		$rxn44 .= "+ 1 $factor ";
+		$rxn44 .= "+ 1 ${factor}_inact ";
 	    }
 	}
 	
@@ -1709,6 +1708,10 @@ sub build_me_model
 	push @{$reactions{$gene}}, $rxn44;
 
 	###
+	# For coupling constraints, adding mRNA reuse reaction
+	###
+	push @{$reactions{$gene}}, "$gene\_mRNA_CONV2\tconversion of mRNA_2 to mRNA_1 (synthetic rxn)\t1 $gene\_mRNA_2 --> 1 $gene\_mRNA_1\tirreversible\tTranslation\n";	
+	###
 	# WRITE $gen\_maturation1
 	#  needs $factors{Def_mono}{ProtMaturationDef} = 1;
 	#+ 1 Def_mono 
@@ -1729,7 +1732,7 @@ sub build_me_model
 	my $rxn66 = "$gene\_maturation2\t$gene formation\t1 $gene\_def_cplx + 1 $cpd_map{h2o} --> 1 $gene\_m ";
 	foreach my $factor (sort keys %{$factors{ProtMaturationDef}})
 	{				
-	    $rxn66 .= "+ 1 $factor ";
+	    $rxn66 .= "+ 1 ${factor}_inact ";
 	}
 	$rxn66 .= "+ 1 $cpd_map{for}\tirreversible\tProtein Maturation\tno matured protein available-missing entry\n";
 	push @{$reactions{$gene}}, $rxn66;
@@ -1786,6 +1789,16 @@ sub build_me_model
     }
 
 # MDJ: Add recycling reactions
+    my %nodups;
+    foreach my $category (sort keys %factors) {
+	foreach my $factor (sort keys %{$factors{$category}}) {
+	    if (! exists $nodups{$factor}) {
+		push @{$reactions{"Recycling"}}, "${factor}_RECYCL\tRecycle used factor $factor\t1 ${factor}_inact --> 1 $factor\tirreversible\tRecycling\n";
+		$nodups{$factor} = 1;
+	    }
+	}
+    }
+
     foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}}) {
 	# leave EF-Tu-Ts because it is cycled intermediate
 	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_1\tEF-Tu.GDP dissociation with EF-Ts as intermediary\t1 $factor + 1 EF_Ts --> 1 EF_Tu_Ts + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
@@ -1841,7 +1854,7 @@ sub build_me_model
 	    push @$newmodelreactions, $modelrxn;
 	    next;
 	}
-	print STDERR "Reformulating model reaction ", $mrid, "\n";
+	# print STDERR "Reformulating model reaction ", $mrid, "\n";
 	foreach my $complex (@{$modelrxn_complexes{$mrid}}) {
 	    my %template = map { $_ => $modelrxn->{$_} } qw/probability gapfill_data protons modelcompartment_ref aliases complex_ref/; # all reactions based off original
 	    $template{reaction_ref} = "~/template/biochemistry/reactions/id/rxn00000";
@@ -2037,7 +2050,7 @@ sub build_me_model
 
     $model->{modelreactions} = $newmodelreactions;
 
-    print STDERR "add factors and compounds and reactions to model and modify biomass\n";
+    # print STDERR "add factors and compounds and reactions to model and modify biomass\n";
     foreach my $factor (keys %formulae) {
 	    my $id = $factor;
 	    $id =~ s/_|\(|\)//g; # remove underscores
@@ -2046,6 +2059,7 @@ sub build_me_model
 	    my $formula = "";
 	    map { $formula.=$_.$formulae{$factor}{$_} if $formulae{$factor}{$_} > 0 && $_ ne "charge" } sort keys %{$formulae{$factor}};
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>${id}."inact_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_inact_c0"};
     }
 
     # handle EF-Tu-Ts since it isn't in factors.txt
@@ -2102,7 +2116,7 @@ sub build_me_model
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
     }
 
-    print STDERR "Adding tRNAs to modelcompounds\n";
+    # print STDERR "Adding tRNAs to modelcompounds\n";
     # need tRNAs
     foreach my $trna (keys %formula_tRNA) {
 	    my $id = $trna;
@@ -2114,7 +2128,7 @@ sub build_me_model
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
     }
 
-    print STDERR "Adding genes to modelcompounds\n";
+    # print STDERR "Adding genes to modelcompounds\n";
     foreach my $gene (keys %compounds) {
 	foreach my $cpd (@{$compounds{$gene}}) {
 	    my ($id, $name, $formula, $charge, undef) = split "\t", $cpd;
@@ -2124,7 +2138,7 @@ sub build_me_model
     }
 
     foreach my $gene (keys %reactions) {
-	print STDERR "Creating reactions for $gene\n";
+	# print STDERR "Creating reactions for $gene\n";
 	foreach my $rxn (@{$reactions{$gene}}) {
 	    my ($id, $name, $formula, $rev, undef) = split "\t", $rxn;
 	    $id =~ s/_|\(|\)//g; # remove underscores
