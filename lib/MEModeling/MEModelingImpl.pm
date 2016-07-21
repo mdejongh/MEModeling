@@ -1145,11 +1145,11 @@ sub build_me_model
 	    ####################
 	    # TRANSLATION INITIATION
 	    ####################
-	    my $rxn5 = "tl_ini_$gene\_$a\_rib\tTranslation initiation $gene $a ribosome(s) bound\t1 $gene\_mRNA_1 + $a fmet_tRNA_met ";
+	    my $rxn5 = "tl_ini_$gene\_n\_$a\_rib\tTranslation initiation $gene $a ribosome(s) bound\t1 $gene\_mRNA_1 + $a fmet_tRNA_met ";
 	    foreach my $factor (sort keys %{$factors{TranslationIni}}) {
 		$rxn5 .= "+ $a $factor ";
 	    }				
-	    $rxn5 .= "+ $a $cpd_map{h2o} --> 1 rib_ini_$gene\_$a ";
+	    $rxn5 .= "+ $a $cpd_map{h2o} --> 1 rib_ini_$gene\_n\_$a ";
 	    foreach my $factor (sort keys %{$factors{TranslationIniOut}})
 	    {
 		$rxn5 .= "+ $a ${factor}_inact ";
@@ -1159,7 +1159,7 @@ sub build_me_model
 
 	    #####################
 	    #addition of formyl-methionine tRNA, rib_30 subunit
-	    # COMPOSITION OF rib_ini_$gene\_$a
+	    # COMPOSITION OF rib_ini_$gene\_n\_$a
 	    my $C_ini=${cds_rna_C}+$a*$formulae{fmet_tRNA_met}{C};
 	    my $H_ini=${cds_rna_H}+$a*$formulae{fmet_tRNA_met}{H};
 	    my $N_ini=${cds_rna_N}+$a*$formulae{fmet_tRNA_met}{N};
@@ -1204,16 +1204,16 @@ sub build_me_model
 		$Ch_ini-=$a*$formulae{$factor}{charge};
 	    }	
 	    ####################
-	    push @{$compounds{$gene}}, "rib_ini_$gene\_$a\t$gene complexed with $a* fmet-tRNA/Mg, $NameFactors\tC$C_ini"."H$H_ini"."N$N_ini"."O$O_ini"."S$S_ini"."Se$Se_ini"."Mg$Mg_ini"."P$P_ini"."Fe$Fe_ini"."Zn$Zn_ini\t$Ch_ini\tTranslation\n";
+	    push @{$compounds{$gene}}, "rib_ini_$gene\_n\_$a\t$gene complexed with $a* fmet-tRNA/Mg, $NameFactors\tC$C_ini"."H$H_ini"."N$N_ini"."O$O_ini"."S$S_ini"."Se$Se_ini"."Mg$Mg_ini"."P$P_ini"."Fe$Fe_ini"."Zn$Zn_ini\t$Ch_ini\tTranslation\n";
 	    ####################
 
 	    ####################
 	    # TRANSLATION ELONGATION - PART Ia
 	    ###################
 
-	    my $rxn6 = "tl_elo_$gene\_$a\_rib1\tTranslation elongation 1 $gene $a ribosome(s)\t1 rib_ini_$gene\_$a + ".(${Mg2}*$a)." $cpd_map{mg2} ";
+	    my $rxn6 = "tl_elo_$gene\_n\_$a\_rib1\tTranslation elongation 1 $gene $a ribosome(s)\t1 rib_ini_$gene\_n\_$a + ".(${Mg2}*$a)." $cpd_map{mg2} ";
 
-	    # preparation for elongation complex: rib_70_$gene\_$a\_cplx
+	    # preparation for elongation complex: rib_70_$gene\_n\_$a\_cplx
 	    # different elements come to the rib_ini complex : EF-TU.GTP.tRNA (charged with aa), EF-G(GTP)
 
 	    my $C_elo=$C_ini;
@@ -1369,14 +1369,14 @@ sub build_me_model
 	    {
 		$rxn6 .= "+ ".(${sum_aa}*$a)." $factor ";
 	    }
-	    $rxn6 .= "--> 1 rib_70_elo1_$gene\_$a\_cplx\tirreversible\tTranslation\n";
+	    $rxn6 .= "--> 1 rib_70_elo1_$gene\_n\_$a\_cplx\tirreversible\tTranslation\n";
 	    push @{$reactions{$gene}}, $rxn6;
 
 	    #################
-	    # WRITING OF rib_70_$gene\_$a\_cplx COMPOUND
+	    # WRITING OF rib_70_$gene\_n\_$a\_cplx COMPOUND
 	    #################
 
-	    my $cpd_rib_70 = "rib_70_elo1_$gene\_$a\_cplx\tTranslation elongation complex: $a * ribosome 70S/$gene/EF-TU-tRNA's/EF-G\tC".$C_elo."H".$H_elo."N".$N_elo."O".$O_elo."S".$S_elo."";
+	    my $cpd_rib_70 = "rib_70_elo1_$gene\_n\_$a\_cplx\tTranslation elongation complex: $a * ribosome 70S/$gene/EF-TU-tRNA's/EF-G\tC".$C_elo."H".$H_elo."N".$N_elo."O".$O_elo."S".$S_elo."";
 	    if ($Se_elo!=0)
 	    {
 		$cpd_rib_70 .= "Se$Se_elo";
@@ -1385,14 +1385,14 @@ sub build_me_model
 	    push @{$compounds{$gene}}, $cpd_rib_70;
 	    
 	    #################
-	    # WRITING OF rib_70_elo2_$gene\_$a\_cplx COMPOUND
+	    # WRITING OF rib_70_elo2_$gene\_n\_$a\_cplx COMPOUND
 	    #################
 
 	    # substracts H2O from resulting complex since H2O is released when peptide bond is formed
 	    $H_elo2=$H_elo2 - (${sum_aa}-1) * $a * 2;
 	    $O_elo2=$O_elo2 - (${sum_aa}-1) * $a *1;
 
-	    my $cpd_rib_70_2 = "rib_70_elo2_$gene\_$a\_cplx\tTranslation elongation complex: $a * ribosome 70S/$gene/second last codon EF-TU-tRNA/1 EF-G\tC".$C_elo2."H".$H_elo2."N".$N_elo2."O".$O_elo2."S".$S_elo2."";
+	    my $cpd_rib_70_2 = "rib_70_elo2_$gene\_n\_$a\_cplx\tTranslation elongation complex: $a * ribosome 70S/$gene/second last codon EF-TU-tRNA/1 EF-G\tC".$C_elo2."H".$H_elo2."N".$N_elo2."O".$O_elo2."S".$S_elo2."";
 	    if ($Se_elo2!=0)
 	    {
 		$cpd_rib_70_2 .= "Se$Se_elo2";
@@ -1405,12 +1405,12 @@ sub build_me_model
 	    ##################
 	    
 	    ####
-	    # WRITE reaciton tl_elo_$gene\_$a\_rib2
+	    # WRITE reaciton tl_elo_$gene\_n\_$a\_rib2
 	    # needs $factors{$factor}{TranslationEF-TU.GDP}
 	    # needs $factors{$factor}{TranslationEF-G.GDP}
 	    ####
 	    ### THINK 
-	    my $rxn7 = "tl_elo_$gene\_$a\_rib2\tTranslation elongation 2 $gene $a ribosome(s)\t1 rib_70_elo1_$gene\_$a\_cplx + ".(((${sum_aa}-1)*$a))." $cpd_map{h2o} --> 1 rib_70_elo2_$gene\_$a\_cplx + $a fmet_tRNA + ".(${Mg2}*$a)." $cpd_map{mg2} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{pi} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{h} ";
+	    my $rxn7 = "tl_elo_$gene\_n\_$a\_rib2\tTranslation elongation 2 $gene $a ribosome(s)\t1 rib_70_elo1_$gene\_n\_$a\_cplx + ".(((${sum_aa}-1)*$a))." $cpd_map{h2o} --> 1 rib_70_elo2_$gene\_n\_$a\_cplx + $a fmet_tRNA + ".(${Mg2}*$a)." $cpd_map{mg2} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{pi} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{h} ";
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 	    {
 		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." ${factor}_inact ";
@@ -1466,23 +1466,23 @@ sub build_me_model
 	    }
 	    
 	    ####
-	    # Write tl_term_$gene\_$a\_rib1
+	    # Write tl_term_$gene\_n\_$a\_rib1
 	    # needs  $factors{RF3_mono.GDP}{TranslationTerm} = 1;
 	    # $a RF3_mono.GDP + $a Rrf_mono ";
 	    ####
 	    
-	    my $rxn8 = "tl_term_$gene\_$a\_rib1\tTranslation termination 1 $gene $a ribosome(s), ($rf)\t1 rib_70_elo2_$gene\_$a\_cplx ";
+	    my $rxn8 = "tl_term_$gene\_n\_$a\_rib1\tTranslation termination 1 $gene $a ribosome(s), ($rf)\t1 rib_70_elo2_$gene\_n\_$a\_cplx ";
 	    
 	    foreach my $factor (sort keys %{$factors{TranslationTerm}})
 	    {
 		$rxn8 .= "+ $a $factor ";
 	    }				
 	    #THINK 
-	    $rxn8 .= "+ $a $rf --> 1 tl_term_$gene\_$a\_rib_cplx\treversible\tTranslation\n";
+	    $rxn8 .= "+ $a $rf --> 1 tl_term_$gene\_n\_$a\_rib_cplx\treversible\tTranslation\n";
 	    push @{$reactions{$gene}}, $rxn8;
 
 	    ####
-	    # Write tl_term_$gene\_$a\_rib2
+	    # Write tl_term_$gene\_n\_$a\_rib2
 	    # needs $factors{rib_70}factors{TranslationElo2} = 1;
 	    #+ $a rib_70 
 	    # needs $factors{EF-Tu.GDP}{TranslationEF-TU.GDP} = 1;
@@ -1493,7 +1493,7 @@ sub build_me_model
 	    # $a RF3_mono.GDP + $a Rrf_mono ";
 	    ####				
 	    
-	    my $rxn9 = "tl_term_$gene\_$a\_rib2\tTranslation termination 2 $gene $a ribosome(s), ($rf)\t1 tl_term_$gene\_$a\_rib_cplx + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a $rf ";
+	    my $rxn9 = "tl_term_$gene\_n\_$a\_rib2\tTranslation termination 2 $gene $a ribosome(s), ($rf)\t1 tl_term_$gene\_n\_$a\_rib_cplx + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a $rf ";
 	    #+ $a rib_70 
 	    foreach my $factor (sort keys %{$factors{TranslationElo2}})
 	    {
@@ -1524,16 +1524,16 @@ sub build_me_model
 
 	    if ($rfx ne '')
 	    {
-		my $rxn11 = "tl_term_$gene\_$a\_rib_RF2_1\tTranslation termination 1 $gene $a ribosome(s), RF2_mono\t1 rib_70_elo2_$gene\_$a\_cplx + $a $rfx ";
+		my $rxn11 = "tl_term_$gene\_n\_$a\_rib_RF2_1\tTranslation termination 1 $gene $a ribosome(s), RF2_mono\t1 rib_70_elo2_$gene\_n\_$a\_cplx + $a $rfx ";
 		#+ $a RF3_mono.GDP + $a Rrf_mono 
 		foreach my $factor (sort keys %{$factors{TranslationTerm}})
 		{
 		    $rxn11 .= "+ $a $factor ";
 		}					
-		$rxn11 .= "--> 1 tl_term_$gene\_$a\_rib_cplx2\treversible\tTranslation\n";
+		$rxn11 .= "--> 1 tl_term_$gene\_n\_$a\_rib_cplx2\treversible\tTranslation\n";
 		push @{$reactions{$gene}}, $rxn11;
 		
-		my $rxn22 = "tl_term_$gene\_$a\_rib_RF2_2\tTranslation termination 2 $gene $a ribosome(s), RF2\t1 tl_term_$gene\_$a\_rib_cplx2 + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a $rfx ";
+		my $rxn22 = "tl_term_$gene\_n\_$a\_rib_RF2_2\tTranslation termination 2 $gene $a ribosome(s), RF2\t1 tl_term_$gene\_n\_$a\_rib_cplx2 + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a $rfx ";
 
 		#+ $a rib_70 
 		foreach my $factor (sort keys %{$factors{TranslationElo2}})
@@ -1561,7 +1561,7 @@ sub build_me_model
 		push @{$reactions{$gene}}, $rxn22;
 		
 		###################
-		# CREATES tl_term_$gene\_$a\_rib_cplx complex, contains: rib_70_elo2_$gene\_$a, $a*RF3_mono.GDP, $a*Rrf_mono, $a*rfx (RF2_mono)
+		# CREATES tl_term_$gene\_n\_$a\_rib_cplx complex, contains: rib_70_elo2_$gene\_n\_$a, $a*RF3_mono.GDP, $a*Rrf_mono, $a*rfx (RF2_mono)
 		###################
 
 		my $C_term2=$C_elo2 + $a*$formulae{$rfx}{C};
@@ -1593,7 +1593,7 @@ sub build_me_model
 		    $NameFactors.= $factor.", ";
 		}
 
-		my $cpd_cplx2 = "tl_term_$gene\_$a\_rib_cplx2\tTranslation termination complex $gene $a ribosomes 2 ($rfx)\tC".$C_term2."H".$H_term2."N".$N_term2."O".$O_term2."S".$S_term2."";
+		my $cpd_cplx2 = "tl_term_$gene\_n\_$a\_rib_cplx2\tTranslation termination complex $gene $a ribosomes 2 ($rfx)\tC".$C_term2."H".$H_term2."N".$N_term2."O".$O_term2."S".$S_term2."";
 		if($Se_term2!=0)
 		{
 		    $cpd_cplx2 .= "Se$Se_term2";
@@ -1603,7 +1603,7 @@ sub build_me_model
 	    }
 
 	    ###################
-	    # CREATES tl_term_$gene\_$a\_rib_cplx complex, contains: rib_70_elo2_$gene\_$a, $a*RF3_mono.GDP, $a*Rrf_mono, $a*rf (RF1 or RF2)
+	    # CREATES tl_term_$gene\_n\_$a\_rib_cplx complex, contains: rib_70_elo2_$gene\_n\_$a, $a*RF3_mono.GDP, $a*Rrf_mono, $a*rf (RF1 or RF2)
 	    ###################
 	    my $C_term1=$C_elo2 + $a*$formulae{$rf}{C};
 	    my $H_term1=$H_elo2 + $a*$formulae{$rf}{H};
@@ -1634,7 +1634,7 @@ sub build_me_model
 		$NameFactors.= $factor.", ";
 	    }
 
-	    my $cpd_term = "tl_term_$gene\_$a\_rib_cplx\tTranslation termination complex $gene $a ribosomes ($NameFactors)\tC".$C_term1."H".$H_term1."N".$N_term1."O".$O_term1."S".$S_term1."";
+	    my $cpd_term = "tl_term_$gene\_n\_$a\_rib_cplx\tTranslation termination complex $gene $a ribosomes ($NameFactors)\tC".$C_term1."H".$H_term1."N".$N_term1."O".$O_term1."S".$S_term1."";
 	    if($Se_term1!=0)
 	    {
 		$cpd_term .= "Se$Se_term1";
@@ -1843,7 +1843,7 @@ sub build_me_model
     push @{$reactions{"Recycling"}}, "fmet_tRNA_cycle\tCharging of fmet-tRNA with methionine and formyl group\t1 fmet_tRNA + 1 $cpd_map{for} + 1 $cpd_map{Met} --> 1 fmet_tRNA_met\tirreversible\tRecycling\n";
 
     # time to reformulate modelreactions
-    my $newmodelreactions = [];
+    my (%newmodelreactions,%newmodelcompounds);
 
     foreach my $modelrxn (@{$model->{modelreactions}}) {
 	my $mrid = $modelrxn->{id};
@@ -1851,7 +1851,7 @@ sub build_me_model
 	next if $mrid =~ /rtranscription/;
 	next if $mrid =~ /pbiosynthesis/;
 	unless (exists $modelrxn_complexes{$mrid}) {
-	    push @$newmodelreactions, $modelrxn;
+	    $newmodelreactions{$mrid} = $modelrxn;
 	    next;
 	}
 	# print STDERR "Reformulating model reaction ", $mrid, "\n";
@@ -1868,20 +1868,18 @@ sub build_me_model
 		my %cplx_form = %template; # create cplx_FORM
 		my $formula = "C1"; # FIX THIS
 		my $charge = 0; # FIX THIS
-		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$cid."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$cname."_c0"};
+		$newmodelcompounds{$cid."_c0"} = {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$cid."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$cname."_c0"};
 		my @reagents = ({"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${cid}_c0"});
 		foreach my $gene (@$complex) {
 		    my $gid = $gene."_mono";
 		    $gid =~ s/_|\(|\)//g; # remove underscores
-		    my $gformula = "C1"; # FIX THIS
-		    my $gcharge = 0; # FIX THIS
 		    push @reagents, {"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${gid}_c0"};
 		}
 		$cplx_form{id} = $cid."FORM_c0";
 		$cplx_form{name} = $cname."_FORM";
 		$cplx_form{modelReactionReagents} = \@reagents;
 		$cplx_form{direction} = "=";
-		push @$newmodelreactions, \%cplx_form;
+		$newmodelreactions{$cplx_form{id}} = \%cplx_form;
 	    }
 	    else {
 		$cname = $complex->[0]."_mono";
@@ -1897,7 +1895,7 @@ sub build_me_model
 	    $inact_id =~ s/_|\(|\)//g; # remove underscores
 	    my $inact_formula = "C1"; # FIX THIS
 	    my $inact_charge = 0; # FIX THIS
-	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$inact_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$inact_formula,"id"=>$inact_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$inact_name."_c0"};
+	    $newmodelcompounds{$inact_id."_c0"} = {"aliases"=>[],"charge"=>1.0*$inact_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$inact_formula,"id"=>$inact_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$inact_name."_c0"};
 
 
 	    if ($modelrxn->{direction} eq ">" || $modelrxn->{direction} eq "=") {
@@ -1919,19 +1917,20 @@ sub build_me_model
 		$stepAcplx_name .= "_cplx";
 		my $stepAcplx_id = $stepAcplx_name;
 		$stepAcplx_id =~ s/_|\(|\)//g; # remove underscores
+		$stepAcplx_id .= "_c0";
 		my $stepAcplx_formula = "C1"; # FIX THIS
 		my $stepAcplx_charge = 0; # FIX THIS
-		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepAcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepAcplx_formula,"id"=>$stepAcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepAcplx_name."_c0"};
-		push @stepAreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepAcplx_id}_c0"};
+		$newmodelcompounds{$stepAcplx_id} = {"aliases"=>[],"charge"=>1.0*$stepAcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepAcplx_formula,"id"=>$stepAcplx_id,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepAcplx_name."_c0"};
+		push @stepAreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepAcplx_id}"};
 		$stepA{modelReactionReagents} = \@stepAreagents;
-		push @$newmodelreactions, \%stepA;
+		$newmodelreactions{$stepA{id}} = \%stepA;
 
 		# STEP B: ENZYME CONVERTS SUBSTRATES TO PRODUCTS IN FORWARD DIRECTION
 		my %stepB = %template;
 		$stepB{id} = $rid.$cid."B_c0";
 		$stepB{name} = $rid."_".$cid."_B_c0";
 		$stepB{direction} = ">";
-		my @stepBreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepAcplx_id}_c0"});
+		my @stepBreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepAcplx_id}"});
 		my $stepBcplx_name = $cid;
 		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
 		    if ($rgt->{coefficient} > 0) {
@@ -1943,19 +1942,20 @@ sub build_me_model
 		$stepBcplx_name .= "_cplx";
 		my $stepBcplx_id = $stepBcplx_name;
 		$stepBcplx_id =~ s/_|\(|\)//g; # remove underscores
+		$stepBcplx_id .= "_c0";
 		my $stepBcplx_formula = "C1"; # FIX THIS
 		my $stepBcplx_charge = 0; # FIX THIS
-		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepBcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepBcplx_formula,"id"=>$stepBcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepBcplx_name."_c0"};
-		push @stepBreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepBcplx_id}_c0"};
+		$newmodelcompounds{$stepBcplx_id} = {"aliases"=>[],"charge"=>1.0*$stepBcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepBcplx_formula,"id"=>$stepBcplx_id,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepBcplx_name."_c0"};
+		push @stepBreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepBcplx_id}"};
 		$stepB{modelReactionReagents} = \@stepBreagents;
-		push @$newmodelreactions, \%stepB;
+		$newmodelreactions{$stepB{id}} = \%stepB;
 
 		# STEP C: ENZYME DISASSOCIATES WITH PRODUCTS IN FORWARD DIRECTION
 		my %stepC = %template;
 		$stepC{id} = $rid.$cid."C_c0";
 		$stepC{name} = $rid."_".$cid."_C_c0";
 		$stepC{direction} = ">";
-		my @stepCreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepBcplx_id}_c0"});
+		my @stepCreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepBcplx_id}"});
 		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
 		    if ($rgt->{coefficient} > 0) {
 			push @stepCreagents, $rgt;
@@ -1963,7 +1963,7 @@ sub build_me_model
 		}
 		push @stepCreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${inact_id}_c0"};
 		$stepC{modelReactionReagents} = \@stepCreagents;
-		push @$newmodelreactions, \%stepC;
+		$newmodelreactions{$stepC{id}} = \%stepC;
 	    }
 
 	    if ($modelrxn->{direction} eq "<" || $modelrxn->{direction} eq "=") {
@@ -1987,19 +1987,20 @@ sub build_me_model
 		$stepEcplx_name .= "_cplx_R";
 		my $stepEcplx_id = $stepEcplx_name;
 		$stepEcplx_id =~ s/_|\(|\)//g; # remove underscores
+		$stepEcplx_id .= "_c0";
 		my $stepEcplx_formula = "C1"; # FIX THIS
 		my $stepEcplx_charge = 0; # FIX THIS
-		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepEcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepEcplx_formula,"id"=>$stepEcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepEcplx_name."_c0"};
-		push @stepEreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepEcplx_id}_c0"};
+		$newmodelcompounds{$stepEcplx_id} = {"aliases"=>[],"charge"=>1.0*$stepEcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepEcplx_formula,"id"=>$stepEcplx_id,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepEcplx_name."_c0"};
+		push @stepEreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepEcplx_id}"};
 		$stepE{modelReactionReagents} = \@stepEreagents;
-		push @$newmodelreactions, \%stepE;
+		$newmodelreactions{$stepE{id}} = \%stepE;
 
 		# STEP F: ENZYME CONVERTS PRODUCTS TO SUBSTRATES IN REVERSE DIRECTION
 		my %stepF = %template;
 		$stepF{id} = $rid.$cid."F_c0";
 		$stepF{name} = $rid."_".$cid."_F_c0";
 		$stepF{direction} = ">";
-		my @stepFreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepEcplx_id}_c0"});
+		my @stepFreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepEcplx_id}"});
 		my $stepFcplx_name = $cid;
 		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
 		    if ($rgt->{coefficient} < 0) {
@@ -2011,19 +2012,20 @@ sub build_me_model
 		$stepFcplx_name .= "_cplx_R";
 		my $stepFcplx_id = $stepFcplx_name;
 		$stepFcplx_id =~ s/_|\(|\)//g; # remove underscores
+		$stepFcplx_id .= "_c0";
 		my $stepFcplx_formula = "C1"; # FIX THIS
 		my $stepFcplx_charge = 0; # FIX THIS
-		push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$stepFcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepFcplx_formula,"id"=>$stepFcplx_id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepFcplx_name."_c0"};
-		push @stepFreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepFcplx_id}_c0"};
+		$newmodelcompounds{$stepFcplx_id} = {"aliases"=>[],"charge"=>1.0*$stepFcplx_charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$stepFcplx_formula,"id"=>$stepFcplx_id,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$stepFcplx_name."_c0"};
+		push @stepFreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${stepFcplx_id}"};
 		$stepF{modelReactionReagents} = \@stepFreagents;
-		push @$newmodelreactions, \%stepF;
+		$newmodelreactions{$stepF{id}} = \%stepF;
 
 		# STEP G: ENZYME DISASSOCIATES WITH SUBSTRATES IN REVERSE DIRECTION
 		my %stepG = %template;
 		$stepG{id} = $rid.$cid."G_c0";
 		$stepG{name} = $rid."_".$cid."_G_c0";
 		$stepG{direction} = ">";
-		my @stepGreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepFcplx_id}_c0"});
+		my @stepGreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${stepFcplx_id}"});
 		foreach my $rgt (@{$modelrxn->{modelReactionReagents}}) {
 		    if ($rgt->{coefficient} < 0) {
 			my %copy = %$rgt;
@@ -2033,7 +2035,7 @@ sub build_me_model
 		}
 		push @stepGreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${inact_id}_c0"};
 		$stepG{modelReactionReagents} = \@stepGreagents;
-		push @$newmodelreactions, \%stepG;
+		$newmodelreactions{$stepG{id}} = \%stepG;
 	    }
 
 	    # STEP DREC: REACTIVATE ENZYME
@@ -2044,11 +2046,12 @@ sub build_me_model
 	    my @stepDRECreagents = ({"coefficient" => -1, "modelcompound_ref" => "~/modelcompounds/id/${inact_id}_c0"});
 	    push @stepDRECreagents, {"coefficient" => 1, "modelcompound_ref" => "~/modelcompounds/id/${cid}_c0"};
 	    $stepDREC{modelReactionReagents} = \@stepDRECreagents;
-	    push @$newmodelreactions, \%stepDREC;
+	    $newmodelreactions{$stepDREC{id}} = \%stepDREC;
 	}
     }
 
-    $model->{modelreactions} = $newmodelreactions;
+    $model->{modelreactions} = [values %newmodelreactions];
+    push @{$model->{modelcompounds}}, values %newmodelcompounds;
 
     # print STDERR "add factors and compounds and reactions to model and modify biomass\n";
     foreach my $factor (keys %formulae) {
