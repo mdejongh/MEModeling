@@ -412,6 +412,7 @@ sub build_me_model
     my %aa_seq;
     my %fr2gene;
     my %trna_seqs;
+    my %tt_rnas;
 
     foreach my $feature (@{$genome->{features}}) {
 	my $gene = $feature->{id};
@@ -431,6 +432,7 @@ sub build_me_model
 	if ($fr =~ /^tRNA\-.*\-[ACGT]{3}$/) {
 	    $fr =~ s/-/_/g;
 	    push @{$trna_seqs{$fr}}, uc $dna;
+	    $tt_rnas{$gene} = $fr;
 	}
 	else {
 	    $aa_seq{$gene} = uc $feature->{protein_translation};
@@ -829,7 +831,7 @@ sub build_me_model
     foreach my $feature (@{$genome->{features}}) {
 	my $gene = $feature->{id};
 	$gene =~ s/\W/_/g;
-	next unless exists $tt_genes{$gene} || exists $m_genes{$gene};
+	next unless exists $tt_rnas{$gene} || exists $tt_genes{$gene} || exists $m_genes{$gene};
 	# print STDERR "Creating TT reactions for $gene\n";
 	my $fr = $feature->{function};
 	my $type = $feature->{type};
@@ -981,7 +983,7 @@ sub build_me_model
 	    # transcr_elo_$gene_cplx accounts for: DNA + 16 mRNA, hRNAP, NusA_mono, NusG_mono, GreA_mono, GreB_mono, omega, Mfd_mono
 	    push @{$compounds{$gene}},"transcr_elo_$gene\_cplx\ttranscription elongation complex ($NameFactors) $gene\tC${complexC}H${complexH}N${complexN}O${complexO}S${complexS}P${complexP}Mg${complexMg}Zn${complexZn}Fe${complexFe}\t${complexcharge}\tTranscription\t${firstG}G ${firstC}C ${firstU}U ${firstA}A\n";
 
-	    push @{$compounds{$gene}}, "$gene\_RNA\t$type\tC${cds_rna_C}H${cds_rna_H}N${cds_rna_N}O${cds_rna_O}P${cds_rna_P}\t${cds_rna_charge}\tRNA cutting".(${cdsG}+${cdsC}+${cdsU}+${cdsA}).", ($status_quo), , ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
+	    push @{$compounds{$gene}}, "$gene\_RNA\t${fr}_$gene\tC${cds_rna_C}H${cds_rna_H}N${cds_rna_N}O${cds_rna_O}P${cds_rna_P}\t${cds_rna_charge}\tRNA cutting".(${cdsG}+${cdsC}+${cdsU}+${cdsA}).", ($status_quo), , ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
 
 	    my $tscrna_ini = "tscr_ini_$gene\_stab\tTranscription initiation of $gene (stable RNA) (, $gene)\t1 $gene\_DNA_act + 1 $rnap";
 	    $tscrna_ini .= " + $firstA $cpd_map{atp}" if $firstA > 0;
@@ -1816,6 +1818,14 @@ sub build_me_model
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GTP}}) {
 		push @{$reactions{"Recycling"}}, "EF_Tu_cycle_3_$trna\tCharging EF-Tu with $trna and GTP and AA\t1 $factor + 1 $trna + 1 $cpd_map{$aa} --> 1 EF_Tu_GTP_$trna\tirreversible\tRecycling\n";
 	    }
+	    my @avg_trna;
+	    foreach my $gene (keys %tt_rnas) {
+		push @avg_trna, $gene."_RNA" if $tt_rnas{$gene} eq $trna;
+	    }
+	    my $coef = 1 / @avg_trna;
+	    my $avg_trna = join " + $coef ", @avg_trna;
+	    $avg_trna = "$coef ".$avg_trna." --> 1 ".$trna;
+	    push @{$reactions{"Recycling"}}, "Average_$trna\tAveraging tRNAs for $trna\t$avg_trna\tirreversible\tRecycling\n";
 	}
     }
     
@@ -2149,19 +2159,17 @@ sub build_me_model
 	    $rev = ($rev eq "irreversible") ? ">" : "=";
 	    my ($substrates, $products) = split "-->", $formula;
 	    my (@reagents);
-	    while ($substrates =~ /(\d+)\s(\S+)/g) {
+	    while ($substrates =~ /(0?\.?\d+)\s(\S+)/g) {
 		my $coef = $1;
 		my $cid = $2;
-		print STDERR "Coefficient is $coef for $cid in $rxn\n" if -1.0*(int $coef) == 0;
 		$cid =~ s/_|\(|\)//g; # remove underscores
-		push @reagents, {"coefficient"=> -1.0*int($coef),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
+		push @reagents, {"coefficient"=> -1.0*$coef,"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
-	    while ($products =~ /(\d+)\s(\S+)/g) {
+	    while ($products =~ /(0?\.?\d+)\s(\S+)/g) {
 		my $coef = $1;
 		my $cid = $2;
-		print STDERR "Coefficient is $coef for $cid in $rxn\n" if -1.0*(int $coef) == 0;
 		$cid =~ s/_|\(|\)//g; # remove underscores
-		push @reagents, {"coefficient"=> 1.0*int($coef),"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
+		push @reagents, {"coefficient"=> 1.0*$coef,"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
 	    
 	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"~/template/biochemistry/reactions/id/rxn00000","modelReactionProteins"=>[]};
@@ -2185,6 +2193,11 @@ sub build_me_model
     push @{$model->{biomasses}}, \%biomass;
     foreach my $gene (keys %tt_genes) {
 	$gene.="_mono";
+	$gene =~ s/_|\(|\)//g; # remove underscores
+	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
+    }
+    foreach my $gene (keys %tt_rnas) {
+	$gene.="_RNA";
 	$gene =~ s/_|\(|\)//g; # remove underscores
 	push @biomasscpds, { "modelcompound_ref" => "~/modelcompounds/id/${gene}_c0", "gapfill_data" => {}, "coefficient" => -1 };
     }
@@ -2218,7 +2231,8 @@ sub build_me_model
 	    'provenance' => $provenance
 		      }]});
 
-    my $report = "ME Model saved to $workspace/$output_id\n Transcription/Translation genes: ".&Dumper(\%tt_genes).&Dumper(\%m_genes);
+    print STDERR "Processed ", (scalar keys %tt_genes) + (scalar keys %tt_rnas), " Transcription/Translation genes and ", scalar keys %m_genes, " metabolic genes\n";
+    my $report = "ME Model saved to $workspace/$output_id\n Transcription/Translation genes: ".&Dumper(\%tt_rnas).&Dumper(\%tt_genes).&Dumper(\%m_genes);
     my $reportObj = { "objects_created"=>[{'ref'=>"$workspace/$output_id", "description"=>"Metabolism-Expression Model"}],
 		      "text_message"=>$report };
     my $reportName = "build_me_model_report";
