@@ -15,6 +15,12 @@ RUN \
   git clone https://github.com/kbase/data_api -b develop && \
   pip install --upgrade /kb/dev_container/modules/data_api
 
+RUN \
+  . /kb/dev_container/user-env.sh && \
+  cd /kb/dev_container/modules && \
+  rm -rf RAST_SDK && \
+  git clone https://github.com/kbaseapps/RAST_SDK
+
 # -----------------------------------------
 
 COPY ./ /kb/module

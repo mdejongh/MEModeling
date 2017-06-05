@@ -20,6 +20,7 @@ use Bio::KBase::AuthToken;
 use Bio::KBase::workspace::Client;
 use Config::IniFiles;
 use Data::Dumper;
+use RAST_SDK::RAST_SDKImpl;
 
 sub combos {
     my ($lol) = @_;
@@ -349,17 +350,23 @@ sub build_me_model
 	die "Error loading model:\n".$@;
     }
 
+    my $rsdk = new RAST_SDK::RAST_SDKImpl;
+    $rsdk->util_initialize_call({},$ctx);
+    my ($genome_ws, $genome_id, undef) = split "/", $model->{genome_ref};
     my $genome;
     eval {
 	$genome = $wsClient->get_objects([{ref=>$model->{genome_ref}}])->[0]{data};
+#	$genome = $rsdk->util_get_genome($genome_ws, $genome_id);
     };
     if ($@) {
 	die "Error loading genome:\n".$@;
     }
 
     my $contigset;
+    my ($cs_ws, $cs_id, undef) = split "/", $genome->{contigset_ref};
     eval {
 	$contigset = $wsClient->get_objects([{ref=>$genome->{contigset_ref}}])->[0]{data};
+#	$contigset = $rsdk->util_get_contigs($cs_ws, $cs_id);
     };
     if ($@) {
 	die "Error loading contigset:\n".$@;
@@ -367,6 +374,8 @@ sub build_me_model
 
     # map compound abbrevs to modelseed ids
     my %cpd_map = (
+	  'me' => 'cpd01024',
+	  'spmd' => 'cpd00264',
 	  'mg2' => 'cpd00254',
           'amp' => 'cpd00018',
           'Lys' => 'cpd00039',
@@ -505,7 +514,7 @@ sub build_me_model
     $aa_abbrev{"Val"} = "V";
 
     # read factors.txt and calculate formula and charge
-    my (%factors, %formulae, %tt_genes);
+    my (%factors, %formulae, %tt_genes, %tt_genes_extra);
 
     my @factor_categories;
 
@@ -518,27 +527,37 @@ sub build_me_model
 	    print STDERR "No gene defined for TT factor '$fr' [$fname]\n";
 	    next;
 	}
-	my ($extra, %extra);
+	my ($extra, %extra, @extra);
 	if ($fname =~ /_GDP$/) {
 	    $extra = "_GDP";
 	    %extra = ( 'C' => 10, 'H' => 13, 'N' => 5, 'O' => 11, 'P' => 2, 'charge' => -2 );
+	    @extra = ($cpd_map{gdp});
 	}
 	elsif ($fname =~ /_GTP$/) {
 	    $extra = "_GTP";
 	    %extra = ( 'C' => 10, 'H' => 16, 'N' => 5, 'O' => 14, 'P' => 3, 'charge' => -3 );
+	    @extra = ($cpd_map{gtp});
 	}
 	elsif ($fname =~ /_me_spmd$/) {
 	    $extra = "_me_spmd";
 	    %extra = ( 'C' => 11, 'H' => 33, 'N' => 4, 'charge' => 3 );
+	    @extra = ($cpd_map{spmd}, $cpd_map{me});
 	}
 	elsif ($fname =~ /_spmd$/) {
 	    $extra = "_spmd";
 	    %extra = ( 'C' => 10, 'H' => 30, 'N' => 4, 'charge' => 4 );
+	    @extra = ($cpd_map{spmd});
 	}
 	if ($fr ne "") {
-	    my $fnameless = $fname;
-	    $fnameless =~ s/$extra//g;
-	    $tt_genes{$fr2gene{$fr}} = $fnameless;
+	    if ($extra ne "") {
+		my $fnameless = $fname;
+		$fnameless =~ s/$extra//g;
+		$tt_genes{$fr2gene{$fr}} = $fnameless;
+		push @{$tt_genes_extra{$fr2gene{$fr}}}, [$fname,\@extra];
+	    }
+	    else {
+		$tt_genes{$fr2gene{$fr}} = $fname;
+	    }
 	}
 	if ($fr ne "") {
 	    $factors{$category}{$fname} = $fr2gene{$fr};
@@ -678,12 +697,12 @@ sub build_me_model
     my $rf1_mono = $factors{LastCodonsFactors}{"RF1_mono"};
     my $rf2_mono = $factors{LastCodonsFactors}{"RF2_mono"};
     my %factors_LastCodonsFactors;
-    $factors_LastCodonsFactors{"RF1_mono"}{"TAA"}=$rf1_mono;
-    $factors_LastCodonsFactors{"RF1_mono"}{"TAG"}=$rf1_mono;
-    $factors_LastCodonsFactors{"RF2_mono"}{"TAA"}=$rf2_mono;
+    $factors_LastCodonsFactors{"RF1_mono"}{"TAA"}=$rf1_mono if defined $rf1_mono;
+    $factors_LastCodonsFactors{"RF1_mono"}{"TAG"}=$rf1_mono if defined $rf1_mono;
+    $factors_LastCodonsFactors{"RF2_mono"}{"TAA"}=$rf2_mono if defined $rf2_mono;
 
     if ($assigned_code == '11') {
-	$factors_LastCodonsFactors{"RF2_mono"}{"TGA"}=$rf2_mono;
+	$factors_LastCodonsFactors{"RF2_mono"}{"TGA"}=$rf2_mono if defined $rf2_mono;
 	$LastCodon{"TGA"}=1;
     }
 
@@ -823,6 +842,7 @@ sub build_me_model
     # sets sigma factor 70 as default sigma factor
     my $rnap='RNAP_70';
     my $sigm='RpoD_mono';
+    my $sigm_inact = $sigm . "_inact";
 
     my (%reactions, %compounds, %test_genes);
 
@@ -901,7 +921,7 @@ sub build_me_model
 	    $tscr_ini .= " + $firstC $cpd_map{ctp}" if $firstC > 0;
 	    $tscr_ini .= " + $firstG $cpd_map{gtp}" if $firstG > 0;
 	    $tscr_ini .= " + $firstU $cpd_map{utp}" if $firstU > 0;
-	    push @{$reactions{$gene}}, $tscr_ini." --> 1 transcr_ini_$gene\_cplx + 1 $sigm + ".($firstA + $firstC + $firstG + $firstU-1)." $cpd_map{ppi}\treversible\tTranscription\n";
+	    push @{$reactions{$gene}}, $tscr_ini." --> 1 transcr_ini_$gene\_cplx + 1 $sigm_inact + ".($firstA + $firstC + $firstG + $firstU-1)." $cpd_map{ppi}\treversible\tTranscription\n";
 
 	    ###########################
 	    # RHO DEPENDENT TERMINATION
@@ -940,7 +960,7 @@ sub build_me_model
 	    }		
 	    foreach my $factor (sort keys %{$factors{RNAP}})
 	    {
-		$rxn2 .= "+ 1 ${factor} ";
+		$rxn2 .= "+ 1 ${factor}_inact ";
 	    }
 	    $rxn2 .= "+ 3 $cpd_map{adp} + 3 $cpd_map{pi} + 3 $cpd_map{h}\tirreversible\tTranscription\t".(($cdsA+$cdsC+$cdsG+$cdsU)/45)." (45nt/s) to ".(($cdsA+$cdsC+$cdsG+$cdsU)/40)." (40nt/s) 1/s\n";
 	    push @{$reactions{$gene}}, $rxn2;
@@ -990,7 +1010,7 @@ sub build_me_model
 	    $tscrna_ini .= " + $firstC $cpd_map{ctp}" if $firstC > 0;
 	    $tscrna_ini .= " + $firstG $cpd_map{gtp}" if $firstG > 0;
 	    $tscrna_ini .= " + $firstU $cpd_map{utp}" if $firstU > 0;
-	    push @{$reactions{$gene}}, $tscrna_ini." --> 1 transcr_ini_$gene\_cplx + 1 $sigm + ".(${firstA} + ${firstC}+ ${firstG} + ${firstU}-1)." $cpd_map{ppi}\treversible\tTranscription\n";
+	    push @{$reactions{$gene}}, $tscrna_ini." --> 1 transcr_ini_$gene\_cplx + 1 $sigm_inact + ".(${firstA} + ${firstC}+ ${firstG} + ${firstU}-1)." $cpd_map{ppi}\treversible\tTranscription\n";
 	    
 	    my $rxn3 = "tscr_elo_$gene\_ini\_stab\tFormation complex for elongation of $gene (stable RNA)\t1 transcr_ini_$gene\_cplx ";
 	    foreach my $factor (sort keys %{$factors{TranscriptionTerminationRNA}})
@@ -1154,7 +1174,12 @@ sub build_me_model
 	    $rxn5 .= "+ $a $cpd_map{h2o} --> 1 rib_ini_$gene\_n\_$a ";
 	    foreach my $factor (sort keys %{$factors{TranslationIniOut}})
 	    {
-		$rxn5 .= "+ $a ${factor}_inact ";
+		if ($factor eq "IF2_GDP") {
+		    $rxn5 .= "+ $a ${factor} ";
+		}
+		else {
+		    $rxn5 .= "+ $a ${factor}_inact ";
+		}
 	    }		
 	    $rxn5 .= "+ $a $cpd_map{pi} + $a $cpd_map{h}\tirreversible\tTranslation\n";
 	    push @{$reactions{$gene}}, $rxn5;
@@ -1415,11 +1440,11 @@ sub build_me_model
 	    my $rxn7 = "tl_elo_$gene\_n\_$a\_rib2\tTranslation elongation 2 $gene $a ribosome(s)\t1 rib_70_elo1_$gene\_n\_$a\_cplx + ".(((${sum_aa}-1)*$a))." $cpd_map{h2o} --> 1 rib_70_elo2_$gene\_n\_$a\_cplx + $a fmet_tRNA + ".(${Mg2}*$a)." $cpd_map{mg2} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{pi} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{h} ";
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 	    {
-		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." ${factor}_inact ";
+		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." ${factor} ";
 	    }
 	    foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 	    {
-		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." ${factor}_inact ";
+		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." ${factor} ";
 	    }
 	    
 	    foreach my $trna (keys %list_tRNA)
@@ -1495,7 +1520,7 @@ sub build_me_model
 	    # $a RF3_mono.GDP + $a Rrf_mono ";
 	    ####				
 	    
-	    my $rxn9 = "tl_term_$gene\_n\_$a\_rib2\tTranslation termination 2 $gene $a ribosome(s), ($rf)\t1 tl_term_$gene\_n\_$a\_rib_cplx + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a $rf ";
+	    my $rxn9 = "tl_term_$gene\_n\_$a\_rib2\tTranslation termination 2 $gene $a ribosome(s), ($rf)\t1 tl_term_$gene\_n\_$a\_rib_cplx + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a ${rf}_inact ";
 	    #+ $a rib_70 
 	    foreach my $factor (sort keys %{$factors{TranslationElo2}})
 	    {
@@ -1504,12 +1529,12 @@ sub build_me_model
 	    #+ $a EF-Tu.GDP
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 	    {
-		$rxn9 .= "+ $a ${factor}_inact ";
+		$rxn9 .= "+ $a ${factor} ";
 	    }				
 	    #+ $a EF-G.GDP
 	    foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 	    {
-		$rxn9 .= "+ $a ${factor}_inact ";
+		$rxn9 .= "+ $a ${factor} ";
 	    }				
 	    #+ $a RF3_mono.GDP + $a Rrf_mono  
 	    foreach my $factor (sort keys %{$factors{TranslationTerm}})
@@ -1535,7 +1560,7 @@ sub build_me_model
 		$rxn11 .= "--> 1 tl_term_$gene\_n\_$a\_rib_cplx2\treversible\tTranslation\n";
 		push @{$reactions{$gene}}, $rxn11;
 		
-		my $rxn22 = "tl_term_$gene\_n\_$a\_rib_RF2_2\tTranslation termination 2 $gene $a ribosome(s), RF2\t1 tl_term_$gene\_n\_$a\_rib_cplx2 + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a $rfx ";
+		my $rxn22 = "tl_term_$gene\_n\_$a\_rib_RF2_2\tTranslation termination 2 $gene $a ribosome(s), RF2\t1 tl_term_$gene\_n\_$a\_rib_cplx2 + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a ${rfx}_inact ";
 
 		#+ $a rib_70 
 		foreach my $factor (sort keys %{$factors{TranslationElo2}})
@@ -1545,12 +1570,12 @@ sub build_me_model
 		#+ $a EF-Tu.GDP
 		foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 		{
-		    $rxn22 .= "+ $a ${factor}_inact ";
+		    $rxn22 .= "+ $a ${factor} ";
 		}				
 		#+ $a EF-G.GDP
 		foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 		{
-		    $rxn22 .= "+ $a ${factor}_inact ";
+		    $rxn22 .= "+ $a ${factor} ";
 		}				
 		#+ $a RF3_mono.GDP + $a Rrf_mono  
 		foreach my $factor (sort keys %{$factors{TranslationTerm}})
@@ -1779,11 +1804,27 @@ sub build_me_model
 
 	$mw_protein=$mw{C}*$m_count{C}+$mw{H}*$m_count{H}+$mw{N}*$m_count{N}+$mw{O}*$m_count{O}+$mw{S}*$m_count{S};
 
-# 	if (exists $tt_genes{$gene}) {
-# 	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $tt_genes{$gene}\tirreversible\tProtein Folding\n";    
-# 	    push @{$compounds{$gene}}, "$tt_genes{$gene}\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
-# 	}
-#	else 
+ 	if (exists $tt_genes{$gene}) {
+	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $tt_genes{$gene}\tirreversible\tProtein Folding\n";    
+ 	    push @{$compounds{$gene}}, "$tt_genes{$gene}\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
+
+	    next if ($tt_genes{$gene} eq "IF2");
+
+	    if (exists $tt_genes_extra{$gene}) {
+		# do I need to push any other compounds here?
+		for (my $enum = 0; $enum < @{$tt_genes_extra{$gene}}; $enum++) {
+		    my $extra = $tt_genes_extra{$gene}->[$enum];
+		    next if ($tt_genes{$gene} eq "EF_G" && $extra->[1]->[0] eq $cpd_map{gtp}) || ($tt_genes{$gene} eq "EF_Tu" && $extra->[1]->[0] eq $cpd_map{gtp});
+		    my $erxn = "$gene\_charging\_$enum\t$gene charging $enum\t1 $tt_genes{$gene}";
+		    foreach my $cpd (@{$extra->[1]}) {
+			$erxn .= " + 1 $cpd";
+		    }
+		    $erxn .= "--> 1 $extra->[0]\tirreversible\tCharging\n";
+		    push @{$reactions{$gene}}, $erxn;
+		}
+	    }
+ 	}
+	else 
 	{
 	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $gene\_mono\tirreversible\tProtein Folding\n";    
 	    push @{$compounds{$gene}}, "$gene\_mono\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
@@ -1794,6 +1835,7 @@ sub build_me_model
     my %nodups;
     foreach my $category (sort keys %factors) {
 	foreach my $factor (sort keys %{$factors{$category}}) {
+	    next if $factor eq "rib_30_ini" || $factor eq "rib_50" || $factor eq "IF2_GTP" || $factor eq "EF_G_GTP" || $factor eq "EF_Tu_GTP" || $factor =~ /pseudo/i || $factor eq "IF2_GDP" || $factor eq "EF_G_GDP" || $factor eq "EF_Tu_GDP";
 	    if (! exists $nodups{$factor}) {
 		push @{$reactions{"Recycling"}}, "${factor}_RECYCL\tRecycle used factor $factor\t1 ${factor}_inact --> 1 $factor\tirreversible\tRecycling\n";
 		$nodups{$factor} = 1;
@@ -1806,7 +1848,7 @@ sub build_me_model
 	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_1\tEF-Tu.GDP dissociation with EF-Ts as intermediary\t1 $factor + 1 EF_Ts --> 1 EF_Tu_Ts + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
     }
     foreach my $factor (sort keys %{$factors{TranslationEF_TU_GTP}}) {
-	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_2\tEF-Tu-Ts dissociation with GTP charging\t1 EF_Tu_Ts + 1 $cpd_map{gtp} --> 1 $factor + 1 EF_Ts\tirreversible\tRecycling\n";
+	push @{$reactions{"Recycling"}}, "EF_Tu_cycle_2\tEF-Tu-Ts dissociation with GTP charging\t1 EF_Tu_Ts + 1 $cpd_map{gtp} --> 1 $factor + 1 EF_Ts_inact\tirreversible\tRecycling\n";
     }
 
     foreach my $trna (keys %list_tRNA) {
@@ -2064,16 +2106,6 @@ sub build_me_model
     push @{$model->{modelcompounds}}, values %newmodelcompounds;
 
     # print STDERR "add factors and compounds and reactions to model and modify biomass\n";
-    foreach my $factor (keys %formulae) {
-	    my $id = $factor;
-	    $id =~ s/_|\(|\)//g; # remove underscores
-	    my $name = $factor;
-	    my $charge = $formulae{$factor}{charge};
-	    my $formula = "";
-	    map { $formula.=$_.$formulae{$factor}{$_} if $formulae{$factor}{$_} > 0 && $_ ne "charge" } sort keys %{$formulae{$factor}};
-	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
-	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>${id}."inact_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_inact_c0"};
-    }
 
     # handle EF-Tu-Ts since it isn't in factors.txt
     {
@@ -2088,20 +2120,6 @@ sub build_me_model
 	    my $charge = $ef_tu_ts{charge};
 	    my $formula = "";
 	    map { $formula.=$_.$ef_tu_ts{$_} if $ef_tu_ts{$_} > 0 && $_ ne "charge" } sort keys %ef_tu_ts;
-	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
-    }
-
-    # handle IF2 since it isn't in factors.txt
-    {
-	    my $id = "IF2";
-	    $id =~ s/_|\(|\)//g; # remove underscores
-	    my $name = "IF2";
-	    my %if2 = %{$formulae{"IF2_GDP"}};
-	    my %gdp = ( 'C' => 10, 'H' => 13, 'N' => 5, 'O' => 11, 'P' => 2, 'charge' => -2 );
-	    map { $if2{$_} -= $gdp{$_} } keys %gdp;
-	    my $charge = $if2{charge};
-	    my $formula = "";
-	    map { $formula.=$_.$if2{$_} if $if2{$_} > 0 && $_ ne "charge" } sort keys %if2;
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
     }
 
@@ -2142,13 +2160,30 @@ sub build_me_model
     }
 
     # print STDERR "Adding genes to modelcompounds\n";
+    # keep track of gene related compounds so we don't add duplicate factors next
+    my %added_compounds;
+
     foreach my $gene (keys %compounds) {
 	foreach my $cpd (@{$compounds{$gene}}) {
 	    my ($id, $name, $formula, $charge, undef) = split "\t", $cpd;
 	    $id =~ s/_|\(|\)//g; # remove underscores
 	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"};
+	    $added_compounds{$id} = 1;
 	}
     }
+
+    # now add any remaining factors that haven't been added yet
+    foreach my $factor (keys %formulae) {
+	    my $id = $factor;
+	    $id =~ s/_|\(|\)//g; # remove underscores
+	    my $name = $factor;
+	    my $charge = $formulae{$factor}{charge};
+	    my $formula = "";
+	    map { $formula.=$_.$formulae{$factor}{$_} if $formulae{$factor}{$_} > 0 && $_ ne "charge" } sort keys %{$formulae{$factor}};
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>$id."_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_c0"} unless exists $added_compounds{$id};
+	    push @{$model->{modelcompounds}}, {"aliases"=>[],"charge"=>1.0*$charge,"compound_ref"=>"~/template/biochemistry/compounds/id/cpd00000","formula"=>$formula,"id"=>${id}."inact_c0","modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>$name."_inact_c0"};
+    }
+
 
     foreach my $gene (keys %reactions) {
 	# print STDERR "Creating reactions for $gene\n";

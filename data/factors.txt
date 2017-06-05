@@ -23,8 +23,11 @@ TranscriptionTerminationRNA	NusB_mono	Transcription termination protein NusB
 RhoDependentTranscriptionTerminationCDS	NusG_mono	Transcription antitermination protein NusG
 TranscriptionTerminationRNA	NusG_mono	Transcription antitermination protein NusG
 mRNAdegradation	Orn_dim	3'-to-5' oligoribonuclease (orn)
+mRNAdegradation	Orn_dim	FIG146085: 3'-to-5' oligoribonuclease A, Bacillus type
+mRNAdegradation	Orn_dim	3'-to-5' oligoribonuclease B, Bacillus type
 LastCodonsFactors	RF1_mono	Peptide chain release factor 1
 LastCodonsFactors	RF2_mono	Peptide chain release factor 2
+LastCodonsFactors	RF2_mono	peptide chain release factor 2
 TranslationTerm	RF3_mono_GDP	Peptide chain release factor 3
 RhoDependentTranscriptionTerminationCDS	Rho_hexa	Transcription termination factor Rho
 TranscriptionTerminationRNA	Rho_hexa	Transcription termination factor Rho
