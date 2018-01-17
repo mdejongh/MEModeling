@@ -71,10 +71,10 @@ eval {
     print STDERR "$@\n" if defined $@;
 
     # apply petri-net test
-    foreach my $gene (keys %{$result->{reactions}}) {
-	my %test = petri($gene,$result->{reactions});
-	print STDERR &Dumper(\%test);
-    }
+#    foreach my $gene (keys %{$result->{reactions}}) {
+#	my %test = petri($gene,$result->{reactions});
+#	print STDERR &Dumper(\%test);
+#    }
 
     done_testing(0);
 };
