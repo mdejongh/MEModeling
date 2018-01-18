@@ -2,7 +2,7 @@ package MEModeling::MEModelingImpl;
 use strict;
 use Bio::KBase::Exceptions;
 # Use Semantic Versioning (2.0.0-rc.1)
-# http://semver.org 
+# http://semver.org
 our $VERSION = "0.1.0";
 
 =head1 NAME
@@ -17,10 +17,10 @@ A KBase module: MEModeling
 
 #BEGIN_HEADER
 use Bio::KBase::AuthToken;
-use Bio::KBase::workspace::Client;
+use Workspace::WorkspaceClient;;
 use Config::IniFiles;
 use Data::Dumper;
-use RAST_SDK::RAST_SDKImpl;
+
 
 sub combos {
     my ($lol) = @_;
@@ -75,7 +75,7 @@ sub get_dna {
 sub avg_rna_count {
     my @cds = @_;
     my %rna_count;
-    
+
     foreach my $cds (@cds) {
 	my $cdsA = $cds =~ tr/A//;
 	my $cdsC = $cds =~ tr/C//;
@@ -83,7 +83,7 @@ sub avg_rna_count {
 	my $cdsU = $cds =~ tr/T//;
 	my $sum = length $cds;
 
-	$rna_count{'C'}+=($cdsG*10 + $cdsC*9 + $cdsA*10 + $cdsU*10);	
+	$rna_count{'C'}+=($cdsG*10 + $cdsC*9 + $cdsA*10 + $cdsU*10);
 	$rna_count{'H'}+=($cdsG*11 + $cdsC*11 + $cdsA*11 + $cdsU*12);
 	$rna_count{'N'}+=($cdsG*5 + $cdsC*3 + $cdsA*5 + $cdsU*2);
 	$rna_count{'O'}+=($cdsG*7 + $cdsC*7 + $cdsA*6 + $cdsU*8-$sum);
@@ -116,7 +116,7 @@ sub parse_formula {
     my @f=split//,$formula;
     for (my $i=0;$i<=$#f;++$i)
     {
-	if ($f[$i] =~ /\D/) 
+	if ($f[$i] =~ /\D/)
 	{
 	    if ($i ne $#f)
 	    {
@@ -138,10 +138,10 @@ sub parse_formula {
 		    }
 		    $retval{$tmp}=$a;
 		    ++$i;
-		    
+
 		}
 		else
-		{	
+		{
 		    $a='';
 		    for (my $j=1;$j<=($#f-$i);++$j)
 		    {
@@ -237,14 +237,14 @@ sub new
     };
     bless $self, $class;
     #BEGIN_CONSTRUCTOR
-    
+
     my $config_file = $ENV{ KB_DEPLOYMENT_CONFIG };
     my $cfg = Config::IniFiles->new(-file=>$config_file);
     my $wsInstance = $cfg->val('MEModeling','workspace-url');
     die "no workspace-url defined" unless $wsInstance;
-    
+
     $self->{'workspace-url'} = $wsInstance;
-    
+
     #END_CONSTRUCTOR
 
     if ($self->can('_init_instance'))
@@ -328,14 +328,14 @@ sub build_me_model
     #BEGIN build_me_model
 
     my $token=$ctx->token;
-    my $wsClient=Bio::KBase::workspace::Client->new($self->{'workspace-url'},token=>$token);
+    my $wsClient=Workspace::WorkspaceClient->new($self->{'workspace-url'},token=>$token);
     my $provenance = [{}];
     $provenance = $ctx->provenance if defined $ctx->provenance;
 
     my $model_ref = $BuildMEModelParams->{model_ref};
     my $workspace = $BuildMEModelParams->{workspace};
     my $output_id = $BuildMEModelParams->{output_id};
-    
+
     # debugging
     my $rxn_start = $BuildMEModelParams->{rxn_start} || 0;
     my $num_rxns = $BuildMEModelParams->{num_rxns} || 1e6;
@@ -350,13 +350,10 @@ sub build_me_model
 	die "Error loading model:\n".$@;
     }
 
-    my $rsdk = new RAST_SDK::RAST_SDKImpl;
-    $rsdk->util_initialize_call({},$ctx);
     my ($genome_ws, $genome_id, undef) = split "/", $model->{genome_ref};
     my $genome;
     eval {
 	$genome = $wsClient->get_objects([{ref=>$model->{genome_ref}}])->[0]{data};
-#	$genome = $rsdk->util_get_genome($genome_ws, $genome_id);
     };
     if ($@) {
 	die "Error loading genome:\n".$@;
@@ -366,7 +363,6 @@ sub build_me_model
     my ($cs_ws, $cs_id, undef) = split "/", $genome->{contigset_ref};
     eval {
 	$contigset = $wsClient->get_objects([{ref=>$genome->{contigset_ref}}])->[0]{data};
-#	$contigset = $rsdk->util_get_contigs($cs_ws, $cs_id);
     };
     if ($@) {
 	die "Error loading contigset:\n".$@;
@@ -449,7 +445,7 @@ sub build_me_model
 
     }
 
-    # Compute average composition of tRNAs that match the same codons 
+    # Compute average composition of tRNAs that match the same codons
     my %formula_tRNA;
 
     foreach my $fr (keys %trna_seqs) {
@@ -616,7 +612,7 @@ sub build_me_model
 	}
 	$formulae{"EF_Tu_GTP_$trna"} = \%formula;
     }
-    
+
     # now we can calculate the fmet_trna_met by averaging the trna_mets
     my $trna_met_count = 0;
     my %fmet_trna_met_formula;
@@ -875,7 +871,7 @@ sub build_me_model
 	my $firstU = $first16 =~ tr/T//;
 
 	# DNA binding of activator
-	my $cdscompC=$cdsG*10 + $cdsC*9 + $cdsA*10 + $cdsU*10;	
+	my $cdscompC=$cdsG*10 + $cdsC*9 + $cdsA*10 + $cdsU*10;
 	my $cdscompH=$cdsG*11 + $cdsC*11 + $cdsA*11 + $cdsU*12; #i checked protons - 11-15
 	my $cdscompN=$cdsG*5 + $cdsC*3 + $cdsA*5 + $cdsU*2;
 	my $cdscompO=$cdsG*7 + $cdsC*7 + $cdsA*6 + $cdsU*8-$sum; # i changed this - 11-15
@@ -889,7 +885,7 @@ sub build_me_model
 	# initiation
 	# complexes include frna and RNAP
 	my $complexC = ${cdscompC}+${firstG}*10+ ${firstC}*9 + ${firstA} *10 + ${firstU} *9;
-	my $complexH = ${cdscompH}+${firstG}*11 + ${firstC}*11 + ${firstA}  *11 + ${firstU} *10+1; 
+	my $complexH = ${cdscompH}+${firstG}*11 + ${firstC}*11 + ${firstA}  *11 + ${firstU} *10+1;
 	my $complexN = ${cdscompN}+${firstG}*5 + ${firstC}*3 + ${firstA}*5 + ${firstU}*2;
 	my $complexO = ${cdscompO}+${firstG}*8 + ${firstC} * 8 + ${firstA}*7 + ${firstU}*9+6-15;
 	my $complexS = 0;
@@ -912,7 +908,7 @@ sub build_me_model
 	    ${complexFe}+=$formulae{$factor}{Fe};
 	    ${complexcharge}+=$formulae{$factor}{charge};
 	}
-	
+
 	push @{$compounds{$gene}},"transcr_ini_$gene\_cplx\ttranscription initiation complex $gene\tC${complexC}H${complexH}N${complexN}O${complexO}S${complexS}P${complexP}Mg${complexMg}Zn${complexZn}Fe${complexFe}\t${complexcharge}\tTranscription\t${firstG}G ${firstC}C ${firstU}U ${firstA}A\n";
 
 	if ($type eq "CDS") {
@@ -928,7 +924,7 @@ sub build_me_model
 	    ###########################
 
 	    # formation complex for elongation - start with initiation complex
-	    my $NameFactors = '';			
+	    my $NameFactors = '';
 	    foreach my $factor (sort keys %{$factors{RhoDependentTranscriptionTerminationCDS}})
 	    {
 		${complexC}+=$formulae{$factor}{C};
@@ -942,13 +938,13 @@ sub build_me_model
 		${complexFe}+=$formulae{$factor}{Fe};
 		${complexcharge}+=$formulae{$factor}{charge};
 		$NameFactors.= $factor.", ";
-	    }	
+	    }
 	    push @{$compounds{$gene}}, "transcr_elo_$gene\_cplx\ttranscription elongation complex $gene (CDS, RHO DEPENDENT TERMINATION, $NameFactors)\tC${complexC}H${complexH}N${complexN}O${complexO}S${complexS}P${complexP}Mg${complexMg}Zn${complexZn}Fe${complexFe}\t${complexcharge}\tTranscription\t${firstG}G ${firstC}C ${firstU}U ${firstA}A\n";
 	    my $rxn = "tscr_elo_$gene\_ini_rho_dep\tFormation complex for elongation of $gene (RHO DEPENDENT TERMINATION)\t1 transcr_ini_$gene\_cplx ";
 	    foreach my $factor (sort keys %{$factors{RhoDependentTranscriptionTerminationCDS}})
 	    {
 		$rxn .= "+ 1 $factor ";
-	    }		
+	    }
 	    $rxn .= "--> 1 transcr_elo_$gene\_cplx\treversible\tTranscription\n";
 	    push @{$reactions{$gene}}, $rxn;
 
@@ -957,7 +953,7 @@ sub build_me_model
 	    foreach my $factor (sort keys %{$factors{RhoDependentTranscriptionTerminationCDS}})
 	    {
 		$rxn2 .= "+ 1 ${factor}_inact ";
-	    }		
+	    }
 	    foreach my $factor (sort keys %{$factors{RNAP}})
 	    {
 		$rxn2 .= "+ 1 ${factor}_inact ";
@@ -973,7 +969,7 @@ sub build_me_model
 	    #RNA
 	    #***********************************
 	    my $sum_dna = ${cdsG} + ${cdsC}+${cdsU}+${cdsA};
-	    my ${cds_rna_C}=${cdsG}*10 + ${cdsC}*9 + ${cdsA}*10 + ${cdsU}*9;	
+	    my ${cds_rna_C}=${cdsG}*10 + ${cdsC}*9 + ${cdsA}*10 + ${cdsU}*9;
 	    my ${cds_rna_H}=${cdsG}*11 + ${cdsC}*11 + ${cdsA}*11 + ${cdsU}*10+1;
 	    my ${cds_rna_N}=${cdsG}*5 + ${cdsC}*3 + ${cdsA}*5 + ${cdsU}*2;
 	    my ${cds_rna_O}=${cdsG}*7 + ${cdsC}*7 + ${cdsA}*6 + ${cdsU}*8+7;
@@ -985,7 +981,7 @@ sub build_me_model
 	    #${cds_rna_P}=${cds_rna_P}-2;
 	    #${cds_rna_charge}=${cds_rna_charge}+2;
 
-	    my $NameFactors = '';			
+	    my $NameFactors = '';
 	    foreach my $factor (sort keys %{$factors{TranscriptionTerminationRNA}})
 	    {
 		${complexC}+=$formulae{$factor}{C};
@@ -999,7 +995,7 @@ sub build_me_model
 		${complexFe}+=$formulae{$factor}{Fe};
 		${complexcharge}+=$formulae{$factor}{charge};
 		$NameFactors.= $factor.", ";
-	    }			
+	    }
 	    # transcr_elo_$gene_cplx accounts for: DNA + 16 mRNA, hRNAP, NusA_mono, NusG_mono, GreA_mono, GreB_mono, omega, Mfd_mono
 	    push @{$compounds{$gene}},"transcr_elo_$gene\_cplx\ttranscription elongation complex ($NameFactors) $gene\tC${complexC}H${complexH}N${complexN}O${complexO}S${complexS}P${complexP}Mg${complexMg}Zn${complexZn}Fe${complexFe}\t${complexcharge}\tTranscription\t${firstG}G ${firstC}C ${firstU}U ${firstA}A\n";
 
@@ -1011,19 +1007,19 @@ sub build_me_model
 	    $tscrna_ini .= " + $firstG $cpd_map{gtp}" if $firstG > 0;
 	    $tscrna_ini .= " + $firstU $cpd_map{utp}" if $firstU > 0;
 	    push @{$reactions{$gene}}, $tscrna_ini." --> 1 transcr_ini_$gene\_cplx + 1 $sigm_inact + ".(${firstA} + ${firstC}+ ${firstG} + ${firstU}-1)." $cpd_map{ppi}\treversible\tTranscription\n";
-	    
+
 	    my $rxn3 = "tscr_elo_$gene\_ini\_stab\tFormation complex for elongation of $gene (stable RNA)\t1 transcr_ini_$gene\_cplx ";
 	    foreach my $factor (sort keys %{$factors{TranscriptionTerminationRNA}})
 	    {
 		$rxn3 .= "+ 1 $factor ";
-	    }						
+	    }
 	    $rxn3 .= "--> 1 transcr_elo_$gene\_cplx\treversible\tTranscription\n";
 	    push @{$reactions{$gene}}, $rxn3;
-	    
+
 	    my $rxn4 = "tscr_elo_term_$gene\_stab\tTranscription elongation and termination of $gene (stable RNA) (, $gene)\t1 transcr_elo_$gene\_cplx + ".(${cdsA}-${firstA})." $cpd_map{atp} + ".(${cdsC}-${firstC})." $cpd_map{ctp} + ".(${cdsG}-${firstG})." $cpd_map{gtp} + ".(${cdsU}-${firstU})." $cpd_map{utp} --> 1 $gene\_DNA_neu + 1 $gene\_RNA + ".((${cdsA}-${firstA})+(${cdsC}-${firstC})+(${cdsG}-${firstG})+(${cdsU}-${firstU}))." $cpd_map{ppi} ";
 
 	    foreach my $factor (sort keys %{$factors{TranscriptionTerminationRNA}})
-	    {					
+	    {
 		$rxn4 .= "+ 1 ${factor}_inact ";
 	    }
 	    foreach my $factor (sort keys %{$factors{RNAP}})
@@ -1041,15 +1037,15 @@ sub build_me_model
 	# only translate CDS
 	next unless ($type eq 'CDS');
 
-	my ${cds_rna_C}=${cdsG}*10 + ${cdsC}*9 + ${cdsA}*10 + ${cdsU}*9;	
+	my ${cds_rna_C}=${cdsG}*10 + ${cdsC}*9 + ${cdsA}*10 + ${cdsU}*9;
 	my ${cds_rna_H}=${cdsG}*11 + ${cdsC}*11 + ${cdsA}*11 + ${cdsU}*10+1;
 	my ${cds_rna_N}=${cdsG}*5 + ${cdsC}*3 + ${cdsA}*5 + ${cdsU}*2;
 	my ${cds_rna_O}=${cdsG}*7 + ${cdsC}*7 + ${cdsA}*6 + ${cdsU}*8+7;
 	my ${cds_rna_P}=(${cdsG} + ${cdsC}+${cdsU}+${cdsA})+2;
 	my ${cds_rna_charge}=(${cdsG} + ${cdsC}+${cdsU}+${cdsA})*(-1)-3;
 
-	push @{$reactions{$gene}}, "$gene\_mRNA_CONV\tconversion of mRNA to mRNA_1 (synthetic rxn)\t1 $gene\_mRNA --> 1 $gene\_mRNA_1\tirreversible\tTranslation\n";	
-	
+	push @{$reactions{$gene}}, "$gene\_mRNA_CONV\tconversion of mRNA to mRNA_1 (synthetic rxn)\t1 $gene\_mRNA --> 1 $gene\_mRNA_1\tirreversible\tTranslation\n";
+
 	my (%trnas_for_gene, $second_last_codon, $last_codon_);
 
 	for (my $i=3; $i < (length($cds)-2); $i +=3) #code does not account for first triplet but set first aa always to be fmet;
@@ -1064,7 +1060,7 @@ sub build_me_model
 
 	    my $found_trna = 0;
 	    if (exists $code_tRNA{$codon}{trna})
-	    {	
+	    {
 		++$trnas_for_gene{$code_tRNA{$codon}{trna}}; # counts the number of different type of tRNAs needed
 		$found_trna = 1;
 	    }
@@ -1081,7 +1077,7 @@ sub build_me_model
 		print STDERR "$gene\t$i\t$codon not at end of gene cannot be matched to a tRNA ... defaulting to $last_chance_codon [$code_tRNA{$last_chance_codon}{trna}]\n";
 		++$trnas_for_gene{$code_tRNA{$last_chance_codon}{trna}}; # counts the number of different type of tRNAs needed
 		$codon = $last_chance_codon;
-	    }		
+	    }
 
 	    if ($i == (length($cds)-6))
 	    {
@@ -1091,7 +1087,7 @@ sub build_me_model
 	    {
 		$last_codon_=$codon; # keeps the last codon for each CDS - important for Translation (Release factor)
 	    }
-	}	
+	}
 
 	if (! defined $last_codon_ || ! defined $second_last_codon) {
 	    print STDERR "Skipping $gene because unable to identify last two codons\n";
@@ -1115,7 +1111,7 @@ sub build_me_model
 	my ${pi}=2*$sum_aa;
 	my ${h}=2*$sum_aa+1;
 	my $number_rib=int(($sum_aa+1)/17) || 1;
-	
+
 	my %aa_count = &aa_count($aa_seq{$gene}, \%infos);
 
 	my $cpd_aa = "$gene\_aa\tpolypeptide $gene\tC$aa_count{C}H$aa_count{H}N$aa_count{N}O$aa_count{O}S$aa_count{S}";
@@ -1128,7 +1124,7 @@ sub build_me_model
 	push @{$compounds{$gene}}, "$gene\_mRNA\tmRNA $gene\tC${cds_rna_C}H${cds_rna_H}N${cds_rna_N}O${cds_rna_O}P${cds_rna_P}\t${cds_rna_charge}\tTranslation\t".(${cdsG}+${cdsC}+${cdsU}+${cdsA})."(), , ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
 	push @{$compounds{$gene}}, "$gene\_mRNA_1\tmRNA $gene\tC${cds_rna_C}H${cds_rna_H}N${cds_rna_N}O${cds_rna_O}P${cds_rna_P}\t${cds_rna_charge}\tTranslation\t".(${cdsG}+${cdsC}+${cdsU}+${cdsA})."(), , ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
 	push @{$compounds{$gene}}, "$gene\_mRNA_2\tmRNA $gene\tC${cds_rna_C}H${cds_rna_H}N${cds_rna_N}O${cds_rna_O}P${cds_rna_P}\t${cds_rna_charge}\tTranslation\t".(${cdsG}+${cdsC}+${cdsU}+${cdsA})."(), , ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
-	
+
 	#$gene\_mRNA_degr accounts for mRNA and degradosome (1 RNase E, 4 RhlB, 4 Eno, 4 PNPase) and Orn;
 	my ${comp_degr_C}=${cds_rna_C};
 	my ${comp_degr_H}=${cds_rna_H};
@@ -1140,10 +1136,10 @@ sub build_me_model
 	my ${comp_degr_Zn}=0;
 	my ${comp_degr_Fe}=0;
 	my ${comp_degr_charge}=${cds_rna_charge};
-	my $NameFactors = '';			
+	my $NameFactors = '';
 
 	foreach my $factor (keys %{$factors{mRNAdegradation}})
-	{				
+	{
 	    ${comp_degr_C}+=$formulae{$factor}{C};
 	    ${comp_degr_H}+=$formulae{$factor}{H};
 	    ${comp_degr_N}+=$formulae{$factor}{N};
@@ -1156,7 +1152,7 @@ sub build_me_model
 	    ${comp_degr_charge}+=$formulae{$factor}{charge};
 	    $NameFactors.= $factor.", ";
 	}
-	
+
 	push @{$compounds{$gene}}, "$gene\_mRNA_2_degr\tmRNA $gene degradation complex ($NameFactors)\tC${comp_degr_C}H${comp_degr_H}N${comp_degr_N}O${comp_degr_O}S${comp_degr_S}P${comp_degr_P}Mg${comp_degr_Mg}Zn${comp_degr_Zn}Fe${comp_degr_Fe}\t${comp_degr_charge}\tmRNA degradation\t, ${cdsG}G ${cdsC}C ${cdsU}U ${cdsA}A\n";
 
 	my %as = map { $_ => 1 } (1, int($number_rib/2), $number_rib);
@@ -1170,7 +1166,7 @@ sub build_me_model
 	    my $rxn5 = "tl_ini_$gene\_n\_$a\_rib\tTranslation initiation $gene $a ribosome(s) bound\t1 $gene\_mRNA_1 + $a fmet_tRNA_met ";
 	    foreach my $factor (sort keys %{$factors{TranslationIni}}) {
 		$rxn5 .= "+ $a $factor ";
-	    }				
+	    }
 	    $rxn5 .= "+ $a $cpd_map{h2o} --> 1 rib_ini_$gene\_n\_$a ";
 	    foreach my $factor (sort keys %{$factors{TranslationIniOut}})
 	    {
@@ -1180,7 +1176,7 @@ sub build_me_model
 		else {
 		    $rxn5 .= "+ $a ${factor}_inact ";
 		}
-	    }		
+	    }
 	    $rxn5 .= "+ $a $cpd_map{pi} + $a $cpd_map{h}\tirreversible\tTranslation\n";
 	    push @{$reactions{$gene}}, $rxn5;
 
@@ -1199,7 +1195,7 @@ sub build_me_model
 	    my $P_ini=${cds_rna_P}+$a*$formulae{fmet_tRNA_met}{P};
 	    my $Ch_ini=${cds_rna_charge}+$a*$formulae{fmet_tRNA_met}{charge};
 
-	    my $NameFactors = '';			
+	    my $NameFactors = '';
 	    foreach my $factor (sort keys %{$factors{TranslationIni}})
 	    {
 		$C_ini+=$a*$formulae{$factor}{C};
@@ -1217,7 +1213,7 @@ sub build_me_model
 	    }
 	    # substracts Initiation factors from initiation complex
 	    foreach my $factor (sort keys %{$factors{TranslationIniFactors}})
-	    {				
+	    {
 		$C_ini-=$a*$formulae{$factor}{C};
 		$H_ini-=$a*$formulae{$factor}{H};
 		$N_ini-=$a*$formulae{$factor}{N};
@@ -1229,7 +1225,7 @@ sub build_me_model
 		$Fe_ini-=$a*$formulae{$factor}{Fe};
 		$Se_ini-=$a*$formulae{$factor}{Se} if defined $formulae{$factor}{Se};
 		$Ch_ini-=$a*$formulae{$factor}{charge};
-	    }	
+	    }
 	    ####################
 	    push @{$compounds{$gene}}, "rib_ini_$gene\_n\_$a\t$gene complexed with $a* fmet-tRNA/Mg, $NameFactors\tC$C_ini"."H$H_ini"."N$N_ini"."O$O_ini"."S$S_ini"."Se$Se_ini"."Mg$Mg_ini"."P$P_ini"."Fe$Fe_ini"."Zn$Zn_ini\t$Ch_ini\tTranslation\n";
 	    ####################
@@ -1270,7 +1266,7 @@ sub build_me_model
 	    my $Zn_elo2=0;
 	    my $Fe_elo2=0;
 	    my $Ch_elo2=${cds_rna_charge}+$a*(-1);
-	    $NameFactors = '';			
+	    $NameFactors = '';
 	    foreach my $factor (sort keys %{$factors{TranslationElo2}})
 	    {
 		$C_elo2+=$a*$formulae{$factor}{C};
@@ -1285,8 +1281,8 @@ sub build_me_model
 		$Se_elo2+=$a*$formulae{$factor}{Se} if defined $formulae{$factor}{Se};
 		$Ch_elo2+=$a*$formulae{$factor}{charge};
 		$NameFactors.= $factor.", ";
-	    }				
-	    
+	    }
+
 	    foreach my $trna (sort keys %trnas_for_gene)
 	    {
 		my $trna2;
@@ -1310,7 +1306,7 @@ sub build_me_model
 		################
 		$rxn6 .= "+ ".($trnas_for_gene{$trna} * $a)." $trna2 ";
 		################
-		
+
 		# addition of EF-Tu.GTP.aa-tRNA to initiation complex
 		### DEFINE $trna2 formulae have to be predofined!
 		$C_elo=$C_elo+(($trnas_for_gene{$trna})*$a*$formulae{$trna2}{C});
@@ -1324,7 +1320,7 @@ sub build_me_model
 		$Mg_elo=$Mg_elo+($trnas_for_gene{$trna})*$a*$formulae{$trna2}{Mg};
 		$Zn_elo=$Zn_elo+($trnas_for_gene{$trna})*$a*$formulae{$trna2}{Zn};
 		$Fe_elo=$Fe_elo+($trnas_for_gene{$trna})*$a*$formulae{$trna2}{Fe};
-		
+
 		##################
 		# accounts for fact that $a*last tRNA and $a*EF-TU is still attached to complex and $a*EF-G
 		##################
@@ -1341,7 +1337,7 @@ sub build_me_model
 		    $Mg_elo2=$Mg_elo2+$infos{$list_tRNA{$trna}}{Mg}*(($trnas_for_gene{$trna}-1) * $a)+($a*$formulae{$trna2}{Mg}) if defined $infos{$list_tRNA{$trna}}{Mg};
 		    $Zn_elo2=$Zn_elo2+$infos{$list_tRNA{$trna}}{Zn}*(($trnas_for_gene{$trna}-1) * $a)+($a*$formulae{$trna2}{Zn}) if defined $infos{$list_tRNA{$trna}}{Zn};
 		    $Fe_elo2=$Fe_elo2+$infos{$list_tRNA{$trna}}{Fe}*(($trnas_for_gene{$trna}-1) * $a)+($a*$formulae{$trna2}{Fe}) if defined $infos{$list_tRNA{$trna}}{Fe};
-		    $NameFactors = '';			
+		    $NameFactors = '';
 		    foreach my $factor (sort keys %{$factors{TranslationEF_G_GTP}})
 		    {
 			$C_elo2+=$a*$formulae{$factor}{C};
@@ -1356,10 +1352,10 @@ sub build_me_model
 			$Se_elo2+=$a*$formulae{$factor}{Se} if defined $formulae{$factor}{Se};
 			$Ch_elo2+=$a*$formulae{$factor}{charge};
 			$NameFactors.= $factor.", ";
-		    }	
+		    }
 		}
 		else
-		{				
+		{
 		    # PREPARATION FOR COMPLEX OF TRANSLATION ELONGATION PART II - adds aa to formulae
 		    $C_elo2=$C_elo2+$infos{$list_tRNA{$trna}}{C}*($trnas_for_gene{$trna} * $a);
 		    $H_elo2=$H_elo2+$infos{$list_tRNA{$trna}}{H}*($trnas_for_gene{$trna} * $a);
@@ -1371,8 +1367,8 @@ sub build_me_model
 		    $Ch_elo2=$Ch_elo2+$infos{$list_tRNA{$trna}}{charge}*($trnas_for_gene{$trna} * $a);
 		}
 	    }
-	    
-	    $NameFactors = '';			
+
+	    $NameFactors = '';
 	    foreach my $factor (sort keys %{$factors{TranslationEF_G_GTP}})
 	    {
 		$C_elo+=(${sum_aa}*$a)*$formulae{$factor}{C};
@@ -1387,8 +1383,8 @@ sub build_me_model
 		$Se_elo+=(${sum_aa}*$a)*$formulae{$factor}{Se} if defined $formulae{$factor}{Se};
 		$Ch_elo+=(${sum_aa}*$a)*$formulae{$factor}{charge};
 		$NameFactors.= $factor.", ";
-	    }		
-	    
+	    }
+
 	    #################
 	    # TRANSLATION ELONGATION RXN - PART Ib
 	    #################
@@ -1410,7 +1406,7 @@ sub build_me_model
 	    }
 	    $cpd_rib_70 .= "P".$P_elo."Mg".$Mg_elo."Zn".$Zn_elo."Fe".$Fe_elo."\t$Ch_elo\tTranslation\n";
 	    push @{$compounds{$gene}}, $cpd_rib_70;
-	    
+
 	    #################
 	    # WRITING OF rib_70_elo2_$gene\_n\_$a\_cplx COMPOUND
 	    #################
@@ -1430,13 +1426,13 @@ sub build_me_model
 	    ##################
 	    # TRANSLATION ELONGATION - PART II
 	    ##################
-	    
+
 	    ####
 	    # WRITE reaciton tl_elo_$gene\_n\_$a\_rib2
 	    # needs $factors{$factor}{TranslationEF-TU.GDP}
 	    # needs $factors{$factor}{TranslationEF-G.GDP}
 	    ####
-	    ### THINK 
+	    ### THINK
 	    my $rxn7 = "tl_elo_$gene\_n\_$a\_rib2\tTranslation elongation 2 $gene $a ribosome(s)\t1 rib_70_elo1_$gene\_n\_$a\_cplx + ".(((${sum_aa}-1)*$a))." $cpd_map{h2o} --> 1 rib_70_elo2_$gene\_n\_$a\_cplx + $a fmet_tRNA + ".(${Mg2}*$a)." $cpd_map{mg2} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{pi} + ".(((2*${sum_aa})-2)*$a)." $cpd_map{h} ";
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 	    {
@@ -1446,13 +1442,13 @@ sub build_me_model
 	    {
 		$rxn7 .= "+ ".((${sum_aa}*$a)-$a)." ${factor} ";
 	    }
-	    
+
 	    foreach my $trna (keys %list_tRNA)
-	    {			
+	    {
 		if (defined $trnas_for_gene{$trna} && $trnas_for_gene{$trna} != 0)
 		{
 		    if ($trna eq ${second_last_codon} && $trnas_for_gene{$trna} > 1)
-		    {		
+		    {
 			$rxn7 .= "+ ".($a*$trnas_for_gene{$trna}-$a); # does not remove last aa-trna from complex
 			$rxn7 .= " $trna ";
 		    }
@@ -1465,11 +1461,11 @@ sub build_me_model
 	    }
 	    $rxn7 .= "\tirreversible\tTranslation\n";
 	    push @{$reactions{$gene}}, $rxn7;
-	    
+
 	    #####################
 	    # Translation TERMINATION
 	    #####################
-	    
+
 	    # accounting for different release factors depending on last codon (based on Putzer abd Laalami, 2003, book, Translation Mechanisms,chapter 24)
 	    my $rfx ='';
 	    my $rf = '';
@@ -1491,58 +1487,58 @@ sub build_me_model
 		    }
 		}
 	    }
-	    
+
 	    ####
 	    # Write tl_term_$gene\_n\_$a\_rib1
 	    # needs  $factors{RF3_mono.GDP}{TranslationTerm} = 1;
 	    # $a RF3_mono.GDP + $a Rrf_mono ";
 	    ####
-	    
+
 	    my $rxn8 = "tl_term_$gene\_n\_$a\_rib1\tTranslation termination 1 $gene $a ribosome(s), ($rf)\t1 rib_70_elo2_$gene\_n\_$a\_cplx ";
-	    
+
 	    foreach my $factor (sort keys %{$factors{TranslationTerm}})
 	    {
 		$rxn8 .= "+ $a $factor ";
-	    }				
-	    #THINK 
+	    }
+	    #THINK
 	    $rxn8 .= "+ $a $rf --> 1 tl_term_$gene\_n\_$a\_rib_cplx\treversible\tTranslation\n";
 	    push @{$reactions{$gene}}, $rxn8;
 
 	    ####
 	    # Write tl_term_$gene\_n\_$a\_rib2
 	    # needs $factors{rib_70}factors{TranslationElo2} = 1;
-	    #+ $a rib_70 
+	    #+ $a rib_70
 	    # needs $factors{EF-Tu.GDP}{TranslationEF-TU.GDP} = 1;
 	    #+ $a EF-Tu.GDP
 	    # needs $factors{EF-G.GDP}{TranslationEF-G.GDP} = 1;
 	    #+ $a EF-G.GDP
 	    # needs  $factors{RF3_mono.GDP}{TranslationTerm} = 1;
 	    # $a RF3_mono.GDP + $a Rrf_mono ";
-	    ####				
-	    
+	    ####
+
 	    my $rxn9 = "tl_term_$gene\_n\_$a\_rib2\tTranslation termination 2 $gene $a ribosome(s), ($rf)\t1 tl_term_$gene\_n\_$a\_rib_cplx + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a ${rf}_inact ";
-	    #+ $a rib_70 
+	    #+ $a rib_70
 	    foreach my $factor (sort keys %{$factors{TranslationElo2}})
 	    {
 		$rxn9 .= "+ $a ${factor}_inact ";
-	    }				
+	    }
 	    #+ $a EF-Tu.GDP
 	    foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 	    {
 		$rxn9 .= "+ $a ${factor} ";
-	    }				
+	    }
 	    #+ $a EF-G.GDP
 	    foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 	    {
 		$rxn9 .= "+ $a ${factor} ";
-	    }				
-	    #+ $a RF3_mono.GDP + $a Rrf_mono  
+	    }
+	    #+ $a RF3_mono.GDP + $a Rrf_mono
 	    foreach my $factor (sort keys %{$factors{TranslationTerm}})
 	    {
 		$rxn9 .= "+ $a ${factor}_inact ";
 	    }
 	    $rxn9 .= "+ $a ";
-	    if (defined ${second_last_codon})	
+	    if (defined ${second_last_codon})
 	    {
 		my $trna=${second_last_codon};
 		$rxn9 .= "$trna\tirreversible\tTranslation\n";
@@ -1552,41 +1548,41 @@ sub build_me_model
 	    if ($rfx ne '')
 	    {
 		my $rxn11 = "tl_term_$gene\_n\_$a\_rib_RF2_1\tTranslation termination 1 $gene $a ribosome(s), RF2_mono\t1 rib_70_elo2_$gene\_n\_$a\_cplx + $a $rfx ";
-		#+ $a RF3_mono.GDP + $a Rrf_mono 
+		#+ $a RF3_mono.GDP + $a Rrf_mono
 		foreach my $factor (sort keys %{$factors{TranslationTerm}})
 		{
 		    $rxn11 .= "+ $a $factor ";
-		}					
+		}
 		$rxn11 .= "--> 1 tl_term_$gene\_n\_$a\_rib_cplx2\treversible\tTranslation\n";
 		push @{$reactions{$gene}}, $rxn11;
-		
+
 		my $rxn22 = "tl_term_$gene\_n\_$a\_rib_RF2_2\tTranslation termination 2 $gene $a ribosome(s), RF2\t1 tl_term_$gene\_n\_$a\_rib_cplx2 + $a $cpd_map{gtp} + ".(2*$a)." $cpd_map{h2o} --> 1 $gene\_mRNA_2 + $a $gene\_aa + $a $cpd_map{gdp} + ".(3*$a)." $cpd_map{h} + ".(3*$a)." $cpd_map{pi} + $a ${rfx}_inact ";
 
-		#+ $a rib_70 
+		#+ $a rib_70
 		foreach my $factor (sort keys %{$factors{TranslationElo2}})
 		{
 		    $rxn22 .= "+ $a ${factor}_inact ";
-		}				
+		}
 		#+ $a EF-Tu.GDP
 		foreach my $factor (sort keys %{$factors{TranslationEF_TU_GDP}})
 		{
 		    $rxn22 .= "+ $a ${factor} ";
-		}				
+		}
 		#+ $a EF-G.GDP
 		foreach my $factor (sort keys %{$factors{TranslationEF_G_GDP}})
 		{
 		    $rxn22 .= "+ $a ${factor} ";
-		}				
-		#+ $a RF3_mono.GDP + $a Rrf_mono  
+		}
+		#+ $a RF3_mono.GDP + $a Rrf_mono
 		foreach my $factor (sort keys %{$factors{TranslationTerm}})
 		{
 		    $rxn22 .= "+ $a ${factor}_inact ";
-		}					
+		}
 		$rxn22 .= "+ $a ";
 		my $trna=${second_last_codon};
 		$rxn22 .= "$trna\tirreversible\tTranslation\n";
 		push @{$reactions{$gene}}, $rxn22;
-		
+
 		###################
 		# CREATES tl_term_$gene\_n\_$a\_rib_cplx complex, contains: rib_70_elo2_$gene\_n\_$a, $a*RF3_mono.GDP, $a*Rrf_mono, $a*rfx (RF2_mono)
 		###################
@@ -1602,8 +1598,8 @@ sub build_me_model
 		my $Mg_term2=$Mg_elo2 + $a*$formulae{$rfx}{Mg};
 		my $Zn_term2=$Zn_elo2 + $a*$formulae{$rfx}{Zn};
 		my $Fe_term2=$Fe_elo2 + $a*$formulae{$rfx}{Fe};
-		
-		$NameFactors = '';			
+
+		$NameFactors = '';
 		foreach my $factor (sort keys %{$factors{TranslationTerm}})
 		{
 		    $C_term2+=$a*$formulae{$factor}{C};
@@ -1643,8 +1639,8 @@ sub build_me_model
 	    my $Mg_term1=$Mg_elo2 + $a*$formulae{$rf}{Mg};
 	    my $Zn_term1=$Zn_elo2 + $a*$formulae{$rf}{Zn};
 	    my $Fe_term1=$Fe_elo2 + $a*$formulae{$rf}{Fe};
-	    
-	    $NameFactors = '';			
+
+	    $NameFactors = '';
 	    foreach my $factor (sort keys %{$factors{TranslationTerm}})
 	    {
 		$C_term1+=$a*$formulae{$factor}{C};
@@ -1671,32 +1667,32 @@ sub build_me_model
 	}
 
 	# mRNA degradation
-	my $cds_length=int(($cdsA+$cdsC+$cdsG+$cdsU)*0.25); 
-	
+	my $cds_length=int(($cdsA+$cdsC+$cdsG+$cdsU)*0.25);
+
 	###
 	# WRITE $cds\_mRNA_degr1
 	# needs $factors{degradosome}{mRNAdegradation} = 0;
-	#+ 1 degradosome + 1 Orn_dim 
+	#+ 1 degradosome + 1 Orn_dim
 	###
 	my $rxn33 = "$gene\_mRNA_degr1\tDegradation of $gene\_mRNA I\t1 $gene\_mRNA_2 ";
 
 	foreach my $factor (sort keys %{$factors{mRNAdegradation}})
-	{				
+	{
 	    $rxn33 .= "+ 1 $factor ";
-	}		
+	}
 	$rxn33 .= "+ $cds_length $cpd_map{atp} + $cds_length $cpd_map{h2o} --> 1 $gene\_mRNA_2_degr + $cds_length $cpd_map{adp} + $cds_length $cpd_map{pi} + $cds_length $cpd_map{h} \treversible\tmRNA degradation\n"; #accounts for unwinding of ds mRNA; based on Gralla and DiLisi, 1974, Nature, 248,330-332 --> found that 50% of randomly generated mRNA has to be ds mRNA
 	push @{$reactions{$gene}}, $rxn33;
-	
+
 	###
 	# WRITE $cds\_mRNA_degr2
 	# needs $factors{degradosome}{mRNAdegradation} = 0;
-	#+ 1 degradosome + 1 Orn_dim 
-	###		
-	
+	#+ 1 degradosome + 1 Orn_dim
+	###
+
 	my $rxn44 = "$gene\_mRNA_degr2\tDegradation of $gene\_mRNA II\t1 $gene\_mRNA_2_degr + ".(${cdsA}+${cdsC}+${cdsG}+${cdsU}-1)." $cpd_map{h2o} --> ";
 	my $cnt = 0;
 	foreach my $factor (sort keys %{$factors{mRNAdegradation}})
-	{		
+	{
 	    if ($cnt == 0)
 	    {
 		$rxn44 .= "1 ${factor}_inact ";
@@ -1707,7 +1703,7 @@ sub build_me_model
 		$rxn44 .= "+ 1 ${factor}_inact ";
 	    }
 	}
-	
+
 	if (substr($cds,0,1) eq 'A')
 	{
 	    $rxn44 .= "+ 1 ".$cpd_map{atp}." + ".(${cdsA}-1)." ".$cpd_map{amp};
@@ -1737,15 +1733,15 @@ sub build_me_model
 	###
 	# For coupling constraints, adding mRNA reuse reaction
 	###
-	push @{$reactions{$gene}}, "$gene\_mRNA_CONV2\tconversion of mRNA_2 to mRNA_1 (synthetic rxn)\t1 $gene\_mRNA_2 --> 1 $gene\_mRNA_1\tirreversible\tTranslation\n";	
+	push @{$reactions{$gene}}, "$gene\_mRNA_CONV2\tconversion of mRNA_2 to mRNA_1 (synthetic rxn)\t1 $gene\_mRNA_2 --> 1 $gene\_mRNA_1\tirreversible\tTranslation\n";
 	###
 	# WRITE $gen\_maturation1
 	#  needs $factors{Def_mono}{ProtMaturationDef} = 1;
-	#+ 1 Def_mono 
-	###	
+	#+ 1 Def_mono
+	###
 	my $rxn55 = "$gene\_maturation1\tPolypeptide $gene peptide deformylase complex\t1 $gene\_aa ";
 	foreach my $factor (sort keys %{$factors{ProtMaturationDef}})
-	{				
+	{
 	    $rxn55 .= "+ 1 $factor ";
 	}
 	$rxn55 .= "--> 1 $gene\_def_cplx\treversible\tProtein Maturation\tno matured protein available-missing entry\n";
@@ -1754,39 +1750,39 @@ sub build_me_model
 	###
 	# WRITE $gene\_maturation2
 	#  needs $factors{Def_mono}{ProtMaturationDef} = 1;
-	#+ 1 Def_mono 
-	###		
+	#+ 1 Def_mono
+	###
 	my $rxn66 = "$gene\_maturation2\t$gene formation\t1 $gene\_def_cplx + 1 $cpd_map{h2o} --> 1 $gene\_m ";
 	foreach my $factor (sort keys %{$factors{ProtMaturationDef}})
-	{				
+	{
 	    $rxn66 .= "+ 1 ${factor}_inact ";
 	}
 	$rxn66 .= "+ 1 $cpd_map{for}\tirreversible\tProtein Maturation\tno matured protein available-missing entry\n";
 	push @{$reactions{$gene}}, $rxn66;
-	
-	my ${mat_C} = $aa_count{C}; 			
-	my ${mat_H} = $aa_count{H}; 
-	my ${mat_O} = $aa_count{O}; 
+
+	my ${mat_C} = $aa_count{C};
+	my ${mat_H} = $aa_count{H};
+	my ${mat_O} = $aa_count{O};
 	my ${mat_N} = $aa_count{N};
-	my ${mat_S} = $aa_count{S}; 
+	my ${mat_S} = $aa_count{S};
 	my ${mat_Mg} = 0;
 	my ${mat_Zn} = 0;
 	my ${mat_Fe} = 0;
-	my ${mat_Se} = $aa_count{Se}; 
-	my ${mat_charge} = $aa_count{charge}; 
-	
+	my ${mat_Se} = $aa_count{Se};
+	my ${mat_charge} = $aa_count{charge};
+
 	foreach my $factor (sort keys %{$factors{ProtMaturationDef}})
-	{				
-	    ${mat_C} += $formulae{$factor}{C}; 
-	    ${mat_H} += $formulae{$factor}{H}; 
-	    ${mat_N} += $formulae{$factor}{N}; 
-	    ${mat_O} += $formulae{$factor}{O}; 
-	    ${mat_S} += $formulae{$factor}{S}; 
-	    ${mat_Mg} += $formulae{$factor}{Mg}; 
-	    ${mat_Zn} += $formulae{$factor}{Zn}; 
-	    ${mat_Fe} += $formulae{$factor}{Fe}; 
+	{
+	    ${mat_C} += $formulae{$factor}{C};
+	    ${mat_H} += $formulae{$factor}{H};
+	    ${mat_N} += $formulae{$factor}{N};
+	    ${mat_O} += $formulae{$factor}{O};
+	    ${mat_S} += $formulae{$factor}{S};
+	    ${mat_Mg} += $formulae{$factor}{Mg};
+	    ${mat_Zn} += $formulae{$factor}{Zn};
+	    ${mat_Fe} += $formulae{$factor}{Fe};
 	    ${mat_Se} += $formulae{$factor}{Se} if exists $formulae{$factor}{Se};
-	    ${mat_charge} += $formulae{$factor}{charge}; 
+	    ${mat_charge} += $formulae{$factor}{charge};
 	}
 
 	my $cpd_def = "$gene\_def_cplx\tPolypeptide $gene peptide deformylase complex\tC${mat_C}H${mat_H}N${mat_N}O${mat_O}S${mat_S}";
@@ -1805,7 +1801,7 @@ sub build_me_model
 	$mw_protein=$mw{C}*$m_count{C}+$mw{H}*$m_count{H}+$mw{N}*$m_count{N}+$mw{O}*$m_count{O}+$mw{S}*$m_count{S};
 
  	if (exists $tt_genes{$gene}) {
-	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $tt_genes{$gene}\tirreversible\tProtein Folding\n";    
+	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $tt_genes{$gene}\tirreversible\tProtein Folding\n";
  	    push @{$compounds{$gene}}, "$tt_genes{$gene}\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
 
 	    next if ($tt_genes{$gene} eq "IF2");
@@ -1824,9 +1820,9 @@ sub build_me_model
 		}
 	    }
  	}
-	else 
+	else
 	{
-	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $gene\_mono\tirreversible\tProtein Folding\n";    
+	    push @{$reactions{$gene}}, "$gene\_fold_spon\t$gene\_m folding: spontanous\t1 $gene\_m --> 1 $gene\_mono\tirreversible\tProtein Folding\n";
 	    push @{$compounds{$gene}}, "$gene\_mono\tMonomer $gene\tC".($m_count{C})."H".($m_count{H})."N$m_count{N}O".($m_count{O})."S$m_count{S}\t".($m_count{charge})."\tFolding\tMW: $mw_protein\n";
 	}
     }
@@ -1870,7 +1866,7 @@ sub build_me_model
 	    push @{$reactions{"Recycling"}}, "Average_$trna\tAveraging tRNAs for $trna\t$avg_trna\tirreversible\tRecycling\n";
 	}
     }
-    
+
     if (defined $sec_trna) {
 	# special handling for selenocysteine - FIX THIS
 	foreach my $factor (sort keys %{$factors{TranslationEF_TU_GTP}}) {
@@ -1884,8 +1880,8 @@ sub build_me_model
 	foreach my $factor2 (sort keys %{$factors{TranslationEF_G_GTP}})
 	{
 	    push @{$reactions{"Recycling"}}, "EF_G_cycle\tEF-G.GDP dissociation and reassociation with GTP\t1 $factor + 1 $cpd_map{gtp} --> 1 $factor2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
-	}				
-    }				
+	}
+    }
 
     push @{$reactions{"Recycling"}}, "IF2_GDP_cycle\tIF2_GDP dissociation\t1 IF2_GDP --> 1 IF2 + 1 $cpd_map{gdp}\tirreversible\tRecycling\n";
     push @{$reactions{"Recycling"}}, "Rib_cycle\tInactive 70S ribosome dissociation plus initiation factor binding\t1 rib_70 + 1 IF1 + 1 IF2 + 1 IF3 + $cpd_map{gtp} --> 1 rib_30_ini + 1 rib_50\tirreversible\tRecycling\n";
@@ -2206,7 +2202,7 @@ sub build_me_model
 		$cid =~ s/_|\(|\)//g; # remove underscores
 		push @reagents, {"coefficient"=> 1.0*$coef,"modelcompound_ref"=>"~/modelcompounds/id/${cid}_c0"};
 	    }
-	    
+
 	    push @{$model->{modelreactions}}, {"aliases"=>[],"direction"=>$rev,"gapfill_data"=>{},"id"=>$id,"modelReactionReagents"=>\@reagents,"modelcompartment_ref"=>"~/modelcompartments/id/c0","name"=>"${name}_c0","probability"=>0,"protons"=>0,"reaction_ref"=>"~/template/biochemistry/reactions/id/rxn00000","modelReactionProteins"=>[]};
 	}
     }
@@ -2302,7 +2298,7 @@ sub build_me_model
 
 
 
-=head2 version 
+=head2 version
 
   $return = $obj->version()
 
